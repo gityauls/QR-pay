@@ -1,0 +1,65 @@
+name: Test and deploy QR Pay
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SHOP_NAME: ${{ vars.QR_PAY_SHOP_NAME }}
+      VITE_USER1_LABEL: ${{ vars.QR_PAY_USER1_LABEL }}
+      VITE_USER1_COLOR: ${{ vars.QR_PAY_USER1_COLOR }}
+      VITE_USER1_BANK: ${{ vars.QR_PAY_USER1_BANK }}
+      VITE_USER1_HOLDER: ${{ secrets.QR_PAY_USER1_HOLDER }}
+      VITE_USER1_ACCOUNT: ${{ secrets.QR_PAY_USER1_ACCOUNT }}
+      VITE_USER2_LABEL: ${{ vars.QR_PAY_USER2_LABEL }}
+      VITE_USER2_COLOR: ${{ vars.QR_PAY_USER2_COLOR }}
+      VITE_USER2_BANK: ${{ vars.QR_PAY_USER2_BANK }}
+      VITE_USER2_HOLDER: ${{ secrets.QR_PAY_USER2_HOLDER }}
+      VITE_USER2_ACCOUNT: ${{ secrets.QR_PAY_USER2_ACCOUNT }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm run test:run
+      - name: Validate account configuration
+        run: npm run validate:deploy-env
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Build site
+        run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/"
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

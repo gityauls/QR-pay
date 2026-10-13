@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ws://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="description" content="행사 판매자를 위한 간단한 계좌송금 QR 만들기" />
+    <title>간편 QR 송금</title>
+  </head>
+  <body>
+    <main data-seller-app aria-live="polite"></main>
+    <script type="module" src="/src/seller/main.ts"></script>
+  </body>
+</html>
