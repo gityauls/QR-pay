@@ -19,7 +19,12 @@
 
 Node.js 22 이상에서 실행합니다.
 
+가장 쉬운 방법은 프로젝트 폴더의 `run-dev.cmd`를 더블클릭하는 것입니다. 어느 폴더에서 실행해도 스크립트가 자동으로 프로젝트 폴더로 이동하고, 최초 실행이면 필요한 패키지를 설치합니다.
+
+PowerShell에서 직접 실행할 때는 먼저 프로젝트 폴더로 이동해야 합니다. 명령 끝에 `\`를 붙이지 마세요.
+
 ```powershell
+Set-Location -LiteralPath 'C:\QR-pay service'
 npm.cmd install
 npm.cmd run dev
 ```
