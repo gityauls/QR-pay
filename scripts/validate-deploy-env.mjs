@@ -24,6 +24,12 @@ for (const id of ['1', '2']) {
     console.error(`VITE_USER${id}_ACCOUNT must contain 8-20 digits with optional spaces or hyphens.`);
     process.exit(1);
   }
+
+  const color = process.env[`VITE_USER${id}_COLOR`] ?? '';
+  if (!/^#[0-9A-F]{6}$/i.test(color)) {
+    console.error(`VITE_USER${id}_COLOR must be a six-digit hex color such as #155E75.`);
+    process.exit(1);
+  }
 }
 
 if (process.env.VITE_USER1_COLOR === process.env.VITE_USER2_COLOR) {
