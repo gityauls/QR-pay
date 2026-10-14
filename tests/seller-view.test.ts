@@ -200,6 +200,7 @@ describe('seller view', () => {
     createSellerApp(element, config, createDependencies());
 
     expect(element.textContent).not.toContain('오늘 QR 1건');
+    expect(button(element, '설정').closest('.app-header')).not.toBeNull();
     button(element, '설정').click();
     expect(element.textContent).toContain('오늘 QR 1건');
     expect(element.textContent).toContain('14,000원');

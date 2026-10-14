@@ -103,7 +103,7 @@ export function createSellerApp(
     return element('section', `app-shell${modifier ? ` ${modifier}` : ''}`);
   }
 
-  function sellerHeader(current: Seller): HTMLElement {
+  function sellerHeader(current: Seller, headerAction?: HTMLElement): HTMLElement {
     const header = element('header', 'app-header');
     header.style.setProperty('--seller-color', current.color);
     header.append(
@@ -111,6 +111,7 @@ export function createSellerApp(
       element('strong', 'app-header__name', current.label),
       element('span', 'app-header__account', `${current.bank}  ${current.accountDisplay}`),
     );
+    if (headerAction) header.append(headerAction);
     return header;
   }
 
@@ -150,13 +151,9 @@ export function createSellerApp(
     }
 
     const view = shell();
-    view.append(sellerHeader(current));
-
-    const toolbar = element('div', 'toolbar');
-    const settings = action('설정', 'button button--secondary button--compact');
+    const settings = action('설정', 'button button--secondary button--compact app-header__action');
     settings.addEventListener('click', renderSettings);
-    toolbar.append(settings);
-    view.append(toolbar);
+    view.append(sellerHeader(current, settings));
 
     const card = element('div', 'panel amount-panel');
     card.append(element('h1', 'screen-title', '받을 금액을 입력해 주세요'));
