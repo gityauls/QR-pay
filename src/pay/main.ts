@@ -1,5 +1,5 @@
 import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config';
-import { OTHER_BANKS, PRIMARY_BANKS, type BankOption } from '../lib/banks';
+import { nonghyupKind, OTHER_BANKS, PRIMARY_BANKS, type BankOption } from '../lib/banks';
 import { copyText } from '../lib/clipboard';
 import { buildAndroidBankLink, buildIosTossLink, buildTossLink } from '../lib/deeplink';
 import { formatWon, formatWonWords } from '../lib/money';
@@ -175,7 +175,9 @@ export function createPayApp(
   const steps = element('aside', 'manual-steps');
   steps.append(
     element('h2', undefined, '은행 앱이 열리면'),
-    element('p', undefined, `1. 받는 은행에서 ${seller.bank}을 선택하세요.`),
+    element('p', undefined, nonghyupKind(seller.bank) === 'local'
+      ? '1. 받는 은행에서 지역농·축협을 선택하세요. 목록에 없으면 농협을 선택하세요.'
+      : `1. 받는 은행에서 ${seller.bank}을 선택하세요.`),
     element('p', undefined, '2. 복사된 계좌번호를 붙여넣으세요.'),
     element('p', 'manual-amount', `3. ${formatWon(request.amount)}을 입력하고 받는 분을 확인하세요.`),
   );

@@ -1,4 +1,4 @@
-import type { BankOption } from './banks';
+import { nonghyupKind, type BankOption } from './banks';
 
 export function buildAndroidBankLink(bank: BankOption): string {
   const storeUrl = `https://play.google.com/store/apps/details?id=${encodeURIComponent(bank.androidPackage)}`;
@@ -14,9 +14,6 @@ type TossPayment = {
 function tossParams(payment: TossPayment): URLSearchParams {
   const compactBank = payment.bank.replace(/\s+/g, '');
   const bankAliases: Record<string, string> = {
-    'NH농협': '농협',
-    'NH농협은행': '농협',
-    '농협은행': '농협',
     'KB국민': '국민',
     'KB국민은행': '국민',
     '국민은행': '국민',
@@ -27,8 +24,12 @@ function tossParams(payment: TossPayment): URLSearchParams {
     'IBK기업은행': '기업',
     '기업은행': '기업',
   };
+  // Toss has no confirmed name for local 농·축협; 농협 reaches both through the shared network.
+  const bank = nonghyupKind(compactBank)
+    ? '농협'
+    : bankAliases[compactBank] ?? compactBank.replace(/은행$/, '');
   return new URLSearchParams({
-    bank: bankAliases[compactBank] ?? compactBank.replace(/은행$/, ''),
+    bank,
     accountNo: payment.accountNo.replace(/\D/g, ''),
     amount: String(payment.amount),
   });

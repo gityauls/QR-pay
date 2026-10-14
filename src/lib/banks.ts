@@ -6,6 +6,14 @@ export type BankOption = {
   kind: 'bank' | 'toss';
 };
 
+// NH농협은행 and local 농·축협 (e.g. 서산농협) are separate institutions on one shared network.
+export function nonghyupKind(bankName: string): 'bank' | 'local' | null {
+  const compact = bankName.replace(/\s+/g, '');
+  if (/^(NH)?농협(은행)?$/i.test(compact)) return 'bank';
+  if (/농협|축협|농축협/.test(compact)) return 'local';
+  return null;
+}
+
 export const PRIMARY_BANKS: readonly BankOption[] = [
   {
     id: 'nh',

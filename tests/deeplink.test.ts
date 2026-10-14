@@ -41,4 +41,10 @@ describe('bank deep links', () => {
     expect(link).toContain('accountNo=1234567890');
     expect(link).toContain('amount=14000');
   });
+
+  it.each(['서산농협', '한우축협', '지역농협'])('sends local cooperative %s to Toss as 농협', (bank) => {
+    const link = buildIosTossLink({ bank, accountNo: '351-1234-5678-91', amount: 1_000 });
+
+    expect(new URL(link).searchParams.get('bank')).toBe('농협');
+  });
 });

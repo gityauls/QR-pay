@@ -183,6 +183,19 @@ describe('customer payment view', () => {
     expect(node.textContent).toContain('14,000원을 입력하세요');
   });
 
+  it('tells customers how to find a local cooperative account in their bank app', () => {
+    const node = root();
+    const localConfig: AppConfig = {
+      ...config,
+      sellers: [{ ...config.sellers[0], bank: '서산농협' }],
+    };
+    createPayApp(node, localConfig, { search: '?u=1&a=14000', copy: vi.fn(), open: vi.fn() });
+
+    expect(node.textContent).toContain('서산농협');
+    expect(node.textContent).toContain('받는 은행에서 지역농·축협을 선택하세요');
+    expect(node.textContent).toContain('목록에 없으면 농협');
+  });
+
   it('keeps a clear manual path when an app launch throws', async () => {
     const node = root();
     createPayApp(node, config, {
