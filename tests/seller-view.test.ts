@@ -83,6 +83,10 @@ describe('seller view', () => {
     expect(element.textContent).toContain('NH농협');
     expect(element.textContent).toContain('123-456-7890');
     expect(element.querySelectorAll('[data-keypad-key]')).toHaveLength(12);
+    expect(element.querySelector('.app-header')).not.toBeNull();
+    expect(element.querySelector('.amount-display')).not.toBeNull();
+    expect(element.querySelector('.keypad')).not.toBeNull();
+    expect(element.querySelector('.primary-action')).not.toBeNull();
 
     const createQr = button(element, 'QR 만들기');
     expect(createQr.disabled).toBe(true);

@@ -56,6 +56,9 @@ describe('customer payment view', () => {
     expect(node.textContent).toContain('김영희');
     expect(node.textContent).toContain('987-654-3210');
     expect(node.querySelector('[data-testid="pay-amount"]')?.textContent).toBe('45,000원');
+    expect(node.querySelector('.bank-grid')).not.toBeNull();
+    expect(node.querySelector('.account-panel')).not.toBeNull();
+    expect(node.querySelectorAll('h1')).toHaveLength(1);
   });
 
   it('shows primary banks before the expandable additional list', () => {

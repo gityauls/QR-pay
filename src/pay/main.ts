@@ -36,7 +36,7 @@ function renderError(root: HTMLElement, message: string): void {
 }
 
 function accountCard(seller: Seller): HTMLElement {
-  const account = element('dl', 'account-card');
+  const account = element('dl', 'account-card account-panel');
   for (const [label, value] of [
     ['받는 은행', seller.bank],
     ['예금주', seller.holder],
