@@ -19,6 +19,8 @@ type TimerHandle = ReturnType<typeof globalThis.setTimeout> | number;
 type TimerDependencies = {
   setTimeout: (callback: () => void, delay: number) => TimerHandle;
   clearTimeout: (handle: TimerHandle) => void;
+  setInterval: (callback: () => void, delay: number) => TimerHandle;
+  clearInterval: (handle: TimerHandle) => void;
 };
 
 type SellerDependencies = {
@@ -59,6 +61,8 @@ function defaultTimers(): TimerDependencies {
   return {
     setTimeout: (callback, delay) => globalThis.setTimeout(callback, delay),
     clearTimeout: (handle) => globalThis.clearTimeout(handle),
+    setInterval: (callback, delay) => globalThis.setInterval(callback, delay),
+    clearInterval: (handle) => globalThis.clearInterval(handle),
   };
 }
 
@@ -71,13 +75,19 @@ export function createSellerApp(
   let currentSellerId = loadCurrentSeller(dependencies.storage);
   let digits = '';
   let activeTimer: TimerHandle | null = null;
+  let activeInterval: TimerHandle | null = null;
 
   const seller = (): Seller | null => getSeller(config, currentSellerId);
 
   function clearActiveTimer(): void {
-    if (activeTimer === null) return;
-    timers.clearTimeout(activeTimer);
-    activeTimer = null;
+    if (activeTimer !== null) {
+      timers.clearTimeout(activeTimer);
+      activeTimer = null;
+    }
+    if (activeInterval !== null) {
+      timers.clearInterval(activeInterval);
+      activeInterval = null;
+    }
   }
 
   function replace(view: HTMLElement): void {
@@ -170,8 +180,8 @@ export function createSellerApp(
       const numeric = digits ? Number(digits) : 0;
       const valid = parseAmount(digits);
       amountDisplay.textContent = formatWon(numeric);
-      if (!digits) amountWords.textContent = '숫자 버튼을 눌러 주세요';
-      else if (valid === null) amountWords.textContent = '1,000원 단위로 입력해 주세요';
+      if (!digits) amountWords.textContent = '1,000원 단위 · 최대 500,000원';
+      else if (valid === null) amountWords.textContent = '1,000원부터 500,000원까지 1,000원 단위로 입력해 주세요';
       else amountWords.textContent = formatWonWords(valid);
       createQr.disabled = valid === null;
     }
@@ -223,7 +233,10 @@ export function createSellerApp(
       image.alt = `${formatWon(confirmedAmount)} 송금 안내 QR 코드`;
       frame.append(image);
       status.replaceWith(frame);
-      card.append(element('p', 'auto-return', '15초 후 다음 손님 화면으로 자동 이동합니다.'));
+      let secondsLeft = 15;
+      const autoReturn = element('p', 'auto-return', '15초 후 다음 손님 화면으로 자동 이동합니다.');
+      autoReturn.setAttribute('aria-live', 'polite');
+      card.append(autoReturn);
 
       recordSale(dependencies.storage, {
         occurredAt: dependencies.now().toISOString(),
@@ -231,8 +244,19 @@ export function createSellerApp(
         amount: confirmedAmount,
       });
 
+      activeInterval = timers.setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft > 0) {
+          autoReturn.textContent = `${secondsLeft}초 후 다음 손님 화면으로 자동 이동합니다.`;
+        }
+      }, 1_000);
+
       activeTimer = timers.setTimeout(() => {
         activeTimer = null;
+        if (activeInterval !== null) {
+          timers.clearInterval(activeInterval);
+          activeInterval = null;
+        }
         digits = '';
         renderAmount();
       }, 15_000);

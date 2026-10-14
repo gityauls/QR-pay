@@ -49,6 +49,7 @@ describe('customer payment view', () => {
       search: '?u=2&a=45000',
       copy: vi.fn(),
       open: vi.fn(),
+      pageUrl: 'https://example.com/QR-pay/pay/?u=2&a=45000',
     });
 
     expect(node.textContent).toContain('45,000원');
@@ -67,6 +68,7 @@ describe('customer payment view', () => {
       search: '?u=1&a=14000',
       copy: vi.fn(),
       open: vi.fn(),
+      pageUrl: 'https://example.com/QR-pay/pay/?u=1&a=14000',
     });
 
     expect(node.querySelectorAll('[data-bank-id]').length).toBe(8);
@@ -98,15 +100,62 @@ describe('customer payment view', () => {
 
   it('uses the Toss amount link while retaining the copied account fallback', async () => {
     const node = root();
-    const copy = vi.fn(async () => true);
+    let finishCopy: ((copied: boolean) => void) | undefined;
+    const copy = vi.fn(() => new Promise<boolean>((resolve) => {
+      finishCopy = resolve;
+    }));
     const open = vi.fn();
-    createPayApp(node, config, { search: '?u=2&a=45000', copy, open });
+    createPayApp(node, config, {
+      search: '?u=2&a=45000',
+      copy,
+      open,
+      pageUrl: 'https://example.com/QR-pay/pay/?u=2&a=45000',
+    });
 
     const tossButton = node.querySelector<HTMLButtonElement>('[data-bank-id="toss"]');
     tossButton?.click();
 
-    await vi.waitFor(() => expect(copy).toHaveBeenCalledWith('9876543210'));
-    expect(open).toHaveBeenCalledWith(expect.stringMatching(/^supertoss:\/\/send\?/));
+    expect(copy).toHaveBeenCalledWith('9876543210');
+    expect(open).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/^intent:\/\/send\?/));
     expect(open).toHaveBeenCalledWith(expect.stringContaining('amount=45000'));
+    expect(node.textContent).toContain('앱이 열리지 않으면');
+
+    finishCopy?.(true);
+    await vi.waitFor(() => expect(node.textContent).toContain('계좌번호를 복사했습니다'));
+  });
+
+  it('still opens the bank app and explains manual copying when clipboard access fails', async () => {
+    const node = root();
+    const open = vi.fn();
+    createPayApp(node, config, {
+      search: '?u=1&a=14000',
+      copy: vi.fn(async () => false),
+      open,
+      pageUrl: 'https://example.com/QR-pay/pay/?u=1&a=14000',
+    });
+
+    node.querySelector<HTMLButtonElement>('[data-bank-id="kb"]')?.click();
+
+    await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
+    expect(node.textContent).toContain('자동 복사가 되지 않았습니다');
+    expect(node.textContent).toContain('길게 눌러 복사');
+  });
+
+  it('keeps a clear manual path when an app launch throws', async () => {
+    const node = root();
+    createPayApp(node, config, {
+      search: '?u=1&a=14000',
+      copy: vi.fn(async () => true),
+      open: vi.fn(() => {
+        throw new Error('unsupported scheme');
+      }),
+      pageUrl: 'https://example.com/QR-pay/pay/?u=1&a=14000',
+    });
+
+    node.querySelector<HTMLButtonElement>('[data-bank-id="toss"]')?.click();
+
+    await vi.waitFor(() => expect(node.textContent).toContain('앱을 열지 못했습니다'));
+    expect(node.textContent).toContain('은행 앱을 직접 열어');
   });
 });

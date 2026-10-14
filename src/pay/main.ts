@@ -11,6 +11,7 @@ type PayDependencies = {
   search: string;
   copy: (text: string) => Promise<boolean>;
   open: (url: string) => void;
+  pageUrl?: string;
 };
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -83,11 +84,38 @@ export function createPayApp(
     accountCard(seller),
   );
 
-  const copyStatus = element('p', 'copy-status', '은행 앱을 누르면 계좌번호가 먼저 복사됩니다.');
+  const copyStatus = element(
+    'p',
+    'copy-status',
+    '은행 앱을 누르면 계좌번호가 먼저 복사됩니다. 앱이 열리지 않으면 직접 앱을 열어 붙여넣으세요.',
+  );
   copyStatus.setAttribute('role', 'status');
 
   const openBank = async (bank: BankOption): Promise<void> => {
-    const copied = await dependencies.copy(seller.accountCopy);
+    const copyOperation = dependencies.copy(seller.accountCopy);
+    const fallbackUrl = new URL(dependencies.pageUrl ?? 'https://example.invalid/');
+    fallbackUrl.hash = 'toss-help';
+    const link = bank.kind === 'toss'
+      ? buildTossLink(
+        { bank: seller.bank, accountNo: seller.accountCopy, amount: request.amount },
+        fallbackUrl.toString(),
+      )
+      : buildAndroidBankLink(bank);
+
+    let launchFailed = false;
+    try {
+      dependencies.open(link);
+    } catch {
+      launchFailed = true;
+    }
+
+    const copied = await copyOperation;
+    if (launchFailed) {
+      copyStatus.textContent = '앱을 열지 못했습니다. 계좌번호를 복사했으니 은행 앱을 직접 열어 주세요.';
+      copyStatus.className = 'copy-status copy-status--error';
+      return;
+    }
+
     if (copied) {
       copyStatus.textContent = bank.kind === 'toss'
         ? '계좌번호를 복사했습니다. 토스에서 받는 분과 금액을 확인하세요.'
@@ -98,10 +126,6 @@ export function createPayApp(
       copyStatus.className = 'copy-status copy-status--error';
     }
 
-    const link = bank.kind === 'toss'
-      ? buildTossLink({ bank: seller.bank, accountNo: seller.accountCopy, amount: request.amount })
-      : buildAndroidBankLink(bank);
-    dependencies.open(link);
   };
 
   const bankSection = element('section', 'bank-section');
@@ -168,6 +192,7 @@ if (mount) {
       open: (url) => {
         window.location.href = url;
       },
+      pageUrl: window.location.href,
     });
   }
 }

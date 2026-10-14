@@ -49,6 +49,8 @@ function createDependencies(overrides: Record<string, unknown> = {}) {
     timers: {
       setTimeout: vi.fn((_callback: () => void, _delay: number) => 1),
       clearTimeout: vi.fn(),
+      setInterval: vi.fn((_callback: () => void, _delay: number) => 2),
+      clearInterval: vi.fn(),
     },
     ...overrides,
   };
@@ -111,6 +113,7 @@ describe('seller view', () => {
     localStorage.setItem('qrpay.currentSeller', '1');
     const element = root();
     let scheduled: (() => void) | undefined;
+    let tick: (() => void) | undefined;
     const timers = {
       setTimeout: vi.fn((callback: () => void, delay: number) => {
         scheduled = callback;
@@ -118,6 +121,12 @@ describe('seller view', () => {
         return 9;
       }),
       clearTimeout: vi.fn(),
+      setInterval: vi.fn((callback: () => void, delay: number) => {
+        tick = callback;
+        expect(delay).toBe(1_000);
+        return 10;
+      }),
+      clearInterval: vi.fn(),
     };
     const makeQr = vi.fn<(url: string) => Promise<string>>().mockResolvedValue('data:image/png;base64,qr');
     createSellerApp(element, config, createDependencies({ timers, makeQr }));
@@ -130,6 +139,9 @@ describe('seller view', () => {
     expect(makeQr.mock.calls[0][0]).not.toContain('1234567890');
     expect(JSON.parse(localStorage.getItem('qrpay.sales') ?? '[]')).toHaveLength(1);
     expect(element.textContent).toContain('14,000원');
+    expect(element.textContent).toContain('15초 후');
+    tick?.();
+    expect(element.textContent).toContain('14초 후');
     expect(timers.setTimeout).toHaveBeenCalledOnce();
 
     scheduled?.();

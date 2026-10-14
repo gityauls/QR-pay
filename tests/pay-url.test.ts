@@ -18,10 +18,10 @@ describe('buildPayUrl', () => {
 
 describe('parsePaymentRequest', () => {
   it('parses a valid request', () => {
-    expect(parsePaymentRequest('?u=1&a=100')).toEqual({
+    expect(parsePaymentRequest('?u=1&a=1000')).toEqual({
       ok: true,
       sellerId: '1',
-      amount: 100,
+      amount: 1000,
     });
   });
 

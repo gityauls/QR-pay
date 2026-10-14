@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { registerPwa } from '../src/pwa';
 
 describe('PWA registration', () => {
@@ -25,5 +27,13 @@ describe('PWA registration', () => {
     } as unknown as Navigator;
 
     await expect(registerPwa(navigatorLike, 'https://example.com/')).resolves.toBeUndefined();
+  });
+
+  it('pre-caches the built JavaScript and CSS referenced by both pages', () => {
+    const worker = readFileSync(resolve(import.meta.dirname, '..', 'public', 'sw.js'), 'utf8');
+
+    expect(worker).toContain('cacheDocumentAssets');
+    expect(worker).toContain('response.text()');
+    expect(worker).toContain("['src', 'href']");
   });
 });

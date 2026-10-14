@@ -14,14 +14,17 @@ describe('bank deep links', () => {
 
   it('builds a Toss transfer link with encoded payment details', () => {
     const link = buildTossLink({
-      bank: 'NH농협',
+      bank: '농협은행',
       accountNo: '123-456-7890',
       amount: 14_000,
-    });
+    }, 'https://example.com/QR-pay/pay/?u=1&a=14000#toss-help');
 
-    expect(link).toContain('supertoss://send?');
-    expect(link).toContain(encodeURIComponent('NH농협'));
+    expect(link).toContain('intent://send?');
+    expect(link).toContain('scheme=supertoss');
+    expect(link).toContain('package=viva.republica.toss');
+    expect(link).toContain(encodeURIComponent('농협'));
     expect(link).toContain('accountNo=1234567890');
     expect(link).toContain('amount=14000');
+    expect(link).toContain('browser_fallback_url=');
   });
 });

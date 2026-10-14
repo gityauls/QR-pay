@@ -1,16 +1,40 @@
 const CACHE_NAME = 'qr-pay-v1';
 const APP_SHELL = [
-  './',
-  './pay/',
   './manifest.webmanifest',
   './icons/qr-pay-192.png',
   './icons/qr-pay-512.png',
 ];
 
+async function cacheDocumentAssets(cache, path) {
+  const documentUrl = new URL(path, self.registration.scope).toString();
+  const response = await fetch(documentUrl, { cache: 'reload' });
+  if (!response.ok) throw new Error(`Unable to cache ${documentUrl}`);
+
+  await cache.put(documentUrl, response.clone());
+  const html = await response.text();
+  const assets = new Set();
+
+  for (const attribute of ['src', 'href']) {
+    const pattern = new RegExp(`${attribute}="([^"]+)"`, 'g');
+    for (const match of html.matchAll(pattern)) {
+      const assetUrl = new URL(match[1], documentUrl);
+      if (assetUrl.origin === self.location.origin) assets.add(assetUrl.toString());
+    }
+  }
+
+  await Promise.all([...assets].map((assetUrl) => cache.add(assetUrl)));
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then(async (cache) => {
+        await cache.addAll(APP_SHELL);
+        await Promise.all([
+          cacheDocumentAssets(cache, './'),
+          cacheDocumentAssets(cache, './pay/'),
+        ]);
+      })
       .then(() => self.skipWaiting()),
   );
 });
