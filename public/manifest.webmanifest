@@ -1,0 +1,26 @@
+{
+  "name": "행사 QR 송금",
+  "short_name": "QR 송금",
+  "description": "행사 판매자를 위한 간편 계좌 송금 QR",
+  "lang": "ko-KR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f4f6",
+  "theme_color": "#075985",
+  "icons": [
+    {
+      "src": "./icons/qr-pay-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/qr-pay-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

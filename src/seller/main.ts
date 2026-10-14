@@ -3,6 +3,7 @@ import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config
 import { applyKey, type KeypadKey } from '../lib/keypad';
 import { formatWon, formatWonWords, parseAmount } from '../lib/money';
 import { buildPayUrl } from '../lib/pay-url';
+import { registerPwa } from '../pwa';
 import {
   getSales,
   getTodaySummary,
@@ -292,6 +293,7 @@ export function createSellerApp(
 
 const mount = document.querySelector<HTMLElement>('[data-seller-app]');
 if (mount) {
+  void registerPwa(navigator, document.baseURI);
   const config = readAppConfig();
   if (!config.ok) {
     mount.textContent = config.message;

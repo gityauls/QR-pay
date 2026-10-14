@@ -4,6 +4,7 @@ import { copyText } from '../lib/clipboard';
 import { buildAndroidBankLink, buildTossLink } from '../lib/deeplink';
 import { formatWon, formatWonWords } from '../lib/money';
 import { parsePaymentRequest } from '../lib/pay-url';
+import { registerPwa } from '../pwa';
 import '../styles.css';
 
 type PayDependencies = {
@@ -157,6 +158,7 @@ export function createPayApp(
 
 const mount = document.querySelector<HTMLElement>('[data-pay-app]');
 if (mount) {
+  void registerPwa(navigator, new URL('../', document.baseURI).toString());
   const config = readAppConfig();
   if (!config.ok) renderError(mount, config.message);
   else {
