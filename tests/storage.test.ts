@@ -82,7 +82,7 @@ describe('sales storage', () => {
       recordSale(storage, {
         occurredAt: '2026-10-13T09:00:00+09:00',
         sellerId: '1',
-        amount: 100,
+        amount: 1_000,
       }),
     ).toBe(false);
   });

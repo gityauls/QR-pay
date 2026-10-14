@@ -1,4 +1,4 @@
-export const MIN_AMOUNT = 100;
+export const MIN_AMOUNT = 1_000;
 export const MAX_AMOUNT = 500_000;
 
 export function parseAmount(value: string | number): number | null {
@@ -7,7 +7,11 @@ export function parseAmount(value: string | number): number | null {
 
   const amount = Number(normalized);
   if (!Number.isSafeInteger(amount)) return null;
-  if (amount < MIN_AMOUNT || amount > MAX_AMOUNT) return null;
+  if (
+    amount < MIN_AMOUNT ||
+    amount > MAX_AMOUNT ||
+    amount % 1_000 !== 0
+  ) return null;
   return amount;
 }
 

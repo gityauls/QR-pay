@@ -3,14 +3,14 @@ import { formatWon, formatWonWords, parseAmount } from '../src/lib/money';
 
 describe('parseAmount', () => {
   it.each([
-    ['100', 100],
-    ['45,000', 45_000],
+    ['1000', 1_000],
+    ['14,000', 14_000],
     ['500000', 500_000],
-  ])('parses valid integer won input %s', (input, expected) => {
+  ])('parses valid thousand-won input %s', (input, expected) => {
     expect(parseAmount(input)).toBe(expected);
   });
 
-  it.each(['', '99', '500001', '1.5', 'abc', '-100', 'NaN'])(
+  it.each(['', '100', '1100', '14500', '500001', '1.5', 'abc', '-1000', 'NaN'])(
     'rejects invalid amount %s',
     (input) => {
       expect(parseAmount(input)).toBeNull();
