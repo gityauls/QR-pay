@@ -28,7 +28,6 @@ describe('loadAppConfig', () => {
   });
 
   it.each([
-    ['missing account', { VITE_USER2_ACCOUNT: '' }],
     ['non-numeric account', { VITE_USER1_ACCOUNT: '123-ABC' }],
     ['placeholder value', { VITE_USER1_HOLDER: 'TODO' }],
     ['same colors', { VITE_USER2_COLOR: '#155E75' }],
@@ -37,6 +36,19 @@ describe('loadAppConfig', () => {
       ok: false,
       message: '계좌 설정이 필요합니다. 관리자에게 알려 주세요.',
     });
+  });
+
+  it('starts with one configured seller while the second account is not ready', () => {
+    const result = loadAppConfig({
+      ...validEnv,
+      VITE_USER2_HOLDER: '',
+      VITE_USER2_ACCOUNT: '',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.sellers).toHaveLength(1);
+    expect(result.value.sellers[0].id).toBe('1');
   });
 });
 

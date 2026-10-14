@@ -12,7 +12,7 @@ export type Seller = {
 
 export type AppConfig = {
   shopName: string;
-  sellers: [Seller, Seller];
+  sellers: Seller[];
 };
 
 export type ConfigResult =
@@ -66,13 +66,15 @@ export function loadAppConfig(env: EnvSource): ConfigResult {
   if (
     !isConfigured(shopName) ||
     !first ||
-    !second ||
-    first.color === second.color
+    (second !== null && first.color === second.color)
   ) {
     return { ok: false, message: CONFIG_ERROR };
   }
 
-  return { ok: true, value: { shopName, sellers: [first, second] } };
+  return {
+    ok: true,
+    value: { shopName, sellers: second ? [first, second] : [first] },
+  };
 }
 
 export function getSeller(config: AppConfig, id: string | null): Seller | null {

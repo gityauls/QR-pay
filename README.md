@@ -6,7 +6,8 @@
 
 ## 현재 제공하는 기능
 
-- 휴대폰마다 받을 사람 1명을 기억
+- 현재 계좌가 있는 판매자 한 명만으로 바로 시작하고, 두 번째 계좌는 나중에 추가
+- 판매자가 두 명이면 휴대폰마다 받을 사람 1명을 기억
 - 1,000원부터 500,000원까지, 1,000원 단위 금액 입력
 - 큰 숫자판과 숫자·한글 금액 동시 확인
 - 고객용 QR 생성 후 15초 뒤 자동으로 다음 손님 화면 복귀
@@ -47,11 +48,10 @@ npm.cmd run build
 | 키 | 용도 |
 |---|---|
 | `VITE_SHOP_NAME` | 화면 위에 표시할 행사 또는 판매점 이름 |
-| `VITE_USER1_LABEL`, `VITE_USER2_LABEL` | 두 판매자를 구분할 이름 |
-| `VITE_USER1_COLOR`, `VITE_USER2_COLOR` | 서로 다른 6자리 색상 코드 |
-| `VITE_USER1_BANK`, `VITE_USER2_BANK` | 실제 입금받을 은행명 |
-| `VITE_USER1_HOLDER`, `VITE_USER2_HOLDER` | 실제 예금주명 |
-| `VITE_USER1_ACCOUNT`, `VITE_USER2_ACCOUNT` | 실제 계좌번호 |
+| `VITE_USER1_LABEL`, `VITE_USER1_COLOR`, `VITE_USER1_BANK`, `VITE_USER1_HOLDER`, `VITE_USER1_ACCOUNT` | 현재 사용할 판매자 1의 필수 정보 |
+| `VITE_USER2_LABEL`, `VITE_USER2_COLOR`, `VITE_USER2_BANK`, `VITE_USER2_HOLDER`, `VITE_USER2_ACCOUNT` | 계좌가 준비된 뒤 추가할 판매자 2의 선택 정보 |
+
+판매자 2는 다섯 항목을 모두 비우거나 모두 입력합니다. 비어 있으면 사용자 선택 화면 없이 판매자 1의 금액 입력 화면으로 바로 시작합니다.
 
 계좌번호는 송금을 위해 고객 화면에 표시되므로 배포 후 완전한 비밀정보는 아닙니다. GitHub Secret을 사용하는 이유는 계좌번호가 공개 저장소의 파일과 커밋 기록에 남지 않도록 하기 위해서입니다.
 
@@ -59,8 +59,9 @@ npm.cmd run build
 
 `.github/workflows/pages.yml`이 `main` 브랜치 변경을 자동 배포합니다. 저장소의 `Settings → Secrets and variables → Actions`에서 다음 값을 따로 등록해야 합니다.
 
-- Variables: `QR_PAY_SHOP_NAME`, 두 사용자의 `LABEL`, `COLOR`, `BANK`
-- Secrets: 두 사용자의 `HOLDER`, `ACCOUNT`
+- Variables: `QR_PAY_SHOP_NAME`, 사용자 1의 `LABEL`, `COLOR`, `BANK`
+- Secrets: 사용자 1의 `HOLDER`, `ACCOUNT`
+- 사용자 2는 계좌가 준비된 뒤 `LABEL`, `COLOR`, `BANK`, `HOLDER`, `ACCOUNT`를 한꺼번에 추가
 
 그다음 `Settings → Pages → Build and deployment → Source`를 `GitHub Actions`로 선택합니다. 자세한 화면 순서는 [처음 실행하기](docs/처음-실행하기.md)에 있습니다.
 

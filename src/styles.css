@@ -160,6 +160,7 @@ h1,
 
 .button:active,
 .keypad__key:active,
+.quick-amount:active,
 .bank-button:active,
 .seller-choice-button:active {
   transform: translateY(2px);
@@ -272,6 +273,26 @@ h1,
   font-size: 1.25rem;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.quick-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.quick-amount {
+  min-height: 64px;
+  padding: 8px 4px;
+  border: 2px solid var(--primary-dark);
+  border-radius: 14px;
+  color: var(--primary-dark);
+  background: var(--soft-blue);
+  cursor: pointer;
+  font-size: 1.4rem;
+  font-weight: 900;
+  box-shadow: 0 2px 0 var(--primary-dark);
 }
 
 .keypad {

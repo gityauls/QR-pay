@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config';
-import { applyKey, type KeypadKey } from '../lib/keypad';
+import { addAmount, applyKey, type KeypadKey } from '../lib/keypad';
 import { formatWon, formatWonWords, parseAmount } from '../lib/money';
 import { buildPayUrl } from '../lib/pay-url';
 import { registerPwa } from '../pwa';
@@ -73,6 +73,10 @@ export function createSellerApp(
 ): void {
   const timers = dependencies.timers ?? defaultTimers();
   let currentSellerId = loadCurrentSeller(dependencies.storage);
+  if (config.sellers.length === 1 && !getSeller(config, currentSellerId)) {
+    currentSellerId = config.sellers[0].id;
+    saveCurrentSeller(dependencies.storage, currentSellerId);
+  }
   let digits = '';
   let activeTimer: TimerHandle | null = null;
   let activeInterval: TimerHandle | null = null;
@@ -186,6 +190,18 @@ export function createSellerApp(
       createQr.disabled = valid === null;
     }
 
+    const quickAmounts = element('div', 'quick-amounts');
+    for (const [step, label] of [[10_000, '+1만원'], [5_000, '+5천원'], [1_000, '+1천원']] as const) {
+      const quickButton = action(label, 'quick-amount');
+      quickButton.dataset.quickAmount = String(step);
+      quickButton.setAttribute('aria-label', `${formatWon(step)} 더하기`);
+      quickButton.addEventListener('click', () => {
+        digits = addAmount(digits, step);
+        refreshAmount();
+      });
+      quickAmounts.append(quickButton);
+    }
+
     for (const [key, label, extraClass] of keyDefinitions) {
       const keyButton = action(label, `keypad__key${extraClass ? ` ${extraClass}` : ''}`);
       keyButton.dataset.keypadKey = key;
@@ -198,7 +214,7 @@ export function createSellerApp(
     }
 
     createQr.addEventListener('click', () => void renderQr());
-    card.append(keypad, createQr);
+    card.append(quickAmounts, keypad, createQr);
     view.append(card);
     replace(view);
   }
@@ -298,15 +314,19 @@ export function createSellerApp(
       }
     }
 
-    const changeSeller = action('받는 분 바꾸기', 'button button--secondary primary-action');
-    changeSeller.addEventListener('click', () => {
-      currentSellerId = null;
-      digits = '';
-      renderChoice();
-    });
     const back = action('금액 입력으로 돌아가기', 'button button--primary primary-action');
     back.addEventListener('click', renderAmount);
-    card.append(list, changeSeller, back);
+    card.append(list);
+    if (config.sellers.length > 1) {
+      const changeSeller = action('받는 분 바꾸기', 'button button--secondary primary-action');
+      changeSeller.addEventListener('click', () => {
+        currentSellerId = null;
+        digits = '';
+        renderChoice();
+      });
+      card.append(changeSeller);
+    }
+    card.append(back);
     view.append(card);
     replace(view);
   }

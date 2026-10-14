@@ -142,6 +142,47 @@ describe('customer payment view', () => {
     expect(node.textContent).toContain('길게 눌러 복사');
   });
 
+  it('opens Toss with the amount through the iPhone scheme', async () => {
+    const node = root();
+    const copy = vi.fn(async () => true);
+    const open = vi.fn();
+    createPayApp(node, config, {
+      search: '?u=2&a=45000',
+      copy,
+      open,
+      pageUrl: 'https://example.com/QR-pay/pay/?u=2&a=45000',
+      platform: 'ios',
+    });
+
+    node.querySelector<HTMLButtonElement>('[data-bank-id="toss"]')?.click();
+
+    expect(copy).toHaveBeenCalledWith('9876543210');
+    expect(open).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/^supertoss:\/\/send\?/));
+    expect(open).toHaveBeenCalledWith(expect.stringContaining('amount=45000'));
+    await vi.waitFor(() => expect(node.textContent).toContain('토스에서 받는 분과 금액을 확인하세요'));
+  });
+
+  it('copies the account without an Android link for other banks on iPhone', async () => {
+    const node = root();
+    const copy = vi.fn(async () => true);
+    const open = vi.fn();
+    createPayApp(node, config, {
+      search: '?u=1&a=14000',
+      copy,
+      open,
+      pageUrl: 'https://example.com/QR-pay/pay/?u=1&a=14000',
+      platform: 'ios',
+    });
+
+    node.querySelector<HTMLButtonElement>('[data-bank-id="nh"]')?.click();
+
+    await vi.waitFor(() => expect(node.textContent).toContain('NH농협 앱을 직접 열어'));
+    expect(copy).toHaveBeenCalledWith('1234567890');
+    expect(open).not.toHaveBeenCalled();
+    expect(node.textContent).toContain('14,000원을 입력하세요');
+  });
+
   it('keeps a clear manual path when an app launch throws', async () => {
     const node = root();
     createPayApp(node, config, {

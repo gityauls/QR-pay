@@ -5,11 +5,6 @@ const required = [
   'VITE_USER1_BANK',
   'VITE_USER1_HOLDER',
   'VITE_USER1_ACCOUNT',
-  'VITE_USER2_LABEL',
-  'VITE_USER2_COLOR',
-  'VITE_USER2_BANK',
-  'VITE_USER2_HOLDER',
-  'VITE_USER2_ACCOUNT',
 ];
 
 const missing = required.filter((key) => !process.env[key]?.trim());
@@ -18,7 +13,23 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-for (const id of ['1', '2']) {
+const optionalSecondKeys = [
+  'VITE_USER2_LABEL',
+  'VITE_USER2_COLOR',
+  'VITE_USER2_BANK',
+  'VITE_USER2_HOLDER',
+  'VITE_USER2_ACCOUNT',
+];
+const hasSecondSeller = Boolean(process.env.VITE_USER2_ACCOUNT?.trim());
+if (hasSecondSeller) {
+  const missingSecond = optionalSecondKeys.filter((key) => !process.env[key]?.trim());
+  if (missingSecond.length > 0) {
+    console.error(`Second seller is partially configured: ${missingSecond.join(', ')}`);
+    process.exit(1);
+  }
+}
+
+for (const id of hasSecondSeller ? ['1', '2'] : ['1']) {
   const account = process.env[`VITE_USER${id}_ACCOUNT`] ?? '';
   if (!/^[0-9 -]+$/.test(account) || !/^\d{8,20}$/.test(account.replace(/\D/g, ''))) {
     console.error(`VITE_USER${id}_ACCOUNT must contain 8-20 digits with optional spaces or hyphens.`);
@@ -32,7 +43,7 @@ for (const id of ['1', '2']) {
   }
 }
 
-if (process.env.VITE_USER1_COLOR === process.env.VITE_USER2_COLOR) {
+if (hasSecondSeller && process.env.VITE_USER1_COLOR === process.env.VITE_USER2_COLOR) {
   console.error('User colors must be different.');
   process.exit(1);
 }

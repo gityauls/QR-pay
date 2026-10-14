@@ -65,6 +65,20 @@ function enterAmount(element: HTMLElement, digits: string): void {
 }
 
 describe('seller view', () => {
+  it('opens the amount screen immediately when only one seller is configured', () => {
+    const element = root();
+    createSellerApp(
+      element,
+      { ...config, sellers: [config.sellers[0]] },
+      createDependencies(),
+    );
+
+    expect(element.textContent).toContain('받을 금액을 입력해 주세요');
+    expect(element.textContent).toContain('사용자 1');
+    expect(localStorage.getItem('qrpay.currentSeller')).toBe('1');
+    expect(element.textContent).not.toContain('받는 분을 선택해 주세요');
+  });
+
   it('asks for the seller only on first use', () => {
     const element = root();
     createSellerApp(element, config, createDependencies());
@@ -96,6 +110,31 @@ describe('seller view', () => {
     expect(element.textContent).toContain('14,000원');
     expect(element.textContent).toContain('1만 4천원');
     expect(createQr.disabled).toBe(false);
+  });
+
+  it('adds quick amount buttons onto the entered amount', () => {
+    localStorage.setItem('qrpay.currentSeller', '1');
+    const element = root();
+    createSellerApp(element, config, createDependencies());
+
+    const quick = (amount: number) => {
+      const key = element.querySelector<HTMLButtonElement>(`[data-quick-amount="${amount}"]`);
+      if (!key) throw new Error(`quick amount missing: ${amount}`);
+      key.click();
+    };
+
+    expect(element.querySelectorAll('[data-quick-amount]')).toHaveLength(3);
+    quick(10_000);
+    quick(5_000);
+    quick(1_000);
+    quick(1_000);
+    expect(element.querySelector('[data-testid="amount-display"]')?.textContent).toBe('17,000원');
+    expect(button(element, 'QR 만들기').disabled).toBe(false);
+
+    button(element, '전체 지우기').click();
+    enterAmount(element, '2000');
+    quick(10_000);
+    expect(element.querySelector('[data-testid="amount-display"]')?.textContent).toBe('12,000원');
   });
 
   it('rejects a non-thousand amount without losing the entered digits', () => {
@@ -165,5 +204,18 @@ describe('seller view', () => {
     expect(element.textContent).toContain('오늘 QR 1건');
     expect(element.textContent).toContain('14,000원');
     expect(element.textContent).toContain('받는 분 바꾸기');
+  });
+
+  it('hides seller switching when only one seller is configured', () => {
+    localStorage.setItem('qrpay.currentSeller', '1');
+    const element = root();
+    createSellerApp(
+      element,
+      { ...config, sellers: [config.sellers[0]] },
+      createDependencies(),
+    );
+
+    button(element, '설정').click();
+    expect(element.textContent).not.toContain('받는 분 바꾸기');
   });
 });

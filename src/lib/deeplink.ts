@@ -5,11 +5,13 @@ export function buildAndroidBankLink(bank: BankOption): string {
   return `intent://#Intent;package=${bank.androidPackage};S.browser_fallback_url=${encodeURIComponent(storeUrl)};end`;
 }
 
-export function buildTossLink(payment: {
+type TossPayment = {
   bank: string;
   accountNo: string;
   amount: number;
-}, fallbackUrl?: string): string {
+};
+
+function tossParams(payment: TossPayment): URLSearchParams {
   const compactBank = payment.bank.replace(/\s+/g, '');
   const bankAliases: Record<string, string> = {
     'NH농협': '농협',
@@ -25,13 +27,21 @@ export function buildTossLink(payment: {
     'IBK기업은행': '기업',
     '기업은행': '기업',
   };
-  const params = new URLSearchParams({
+  return new URLSearchParams({
     bank: bankAliases[compactBank] ?? compactBank.replace(/은행$/, ''),
     accountNo: payment.accountNo.replace(/\D/g, ''),
     amount: String(payment.amount),
   });
+}
 
+export function buildTossLink(payment: TossPayment, fallbackUrl?: string): string {
+  const params = tossParams(payment);
   const storeUrl = 'https://play.google.com/store/apps/details?id=viva.republica.toss';
   const fallback = encodeURIComponent(fallbackUrl ?? storeUrl);
   return `intent://send?${params.toString()}#Intent;scheme=supertoss;package=viva.republica.toss;S.browser_fallback_url=${fallback};end`;
+}
+
+// iOS Safari rejects Android intent:// links, so iPhone opens Toss by its own scheme.
+export function buildIosTossLink(payment: TossPayment): string {
+  return `supertoss://send?${tossParams(payment).toString()}`;
 }

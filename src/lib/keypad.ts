@@ -13,3 +13,8 @@ export function applyKey(current: string, key: KeypadKey): string {
   if (!next) return '';
   return Number(next) > MAX_AMOUNT ? current : next;
 }
+
+export function addAmount(current: string, step: number): string {
+  const next = Number(current || 0) + step;
+  return next > MAX_AMOUNT ? current : String(next);
+}

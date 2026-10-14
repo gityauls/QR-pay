@@ -1,9 +1,10 @@
 import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config';
 import { OTHER_BANKS, PRIMARY_BANKS, type BankOption } from '../lib/banks';
 import { copyText } from '../lib/clipboard';
-import { buildAndroidBankLink, buildTossLink } from '../lib/deeplink';
+import { buildAndroidBankLink, buildIosTossLink, buildTossLink } from '../lib/deeplink';
 import { formatWon, formatWonWords } from '../lib/money';
 import { parsePaymentRequest } from '../lib/pay-url';
+import { detectPlatform, type Platform } from '../lib/platform';
 import { registerPwa } from '../pwa';
 import '../styles.css';
 
@@ -12,6 +13,7 @@ type PayDependencies = {
   copy: (text: string) => Promise<boolean>;
   open: (url: string) => void;
   pageUrl?: string;
+  platform?: Platform;
 };
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -91,22 +93,31 @@ export function createPayApp(
   );
   copyStatus.setAttribute('role', 'status');
 
+  const isIos = dependencies.platform === 'ios';
+
+  const launchLink = (bank: BankOption): string | null => {
+    if (bank.kind === 'toss') {
+      const payment = { bank: seller.bank, accountNo: seller.accountCopy, amount: request.amount };
+      if (isIos) return buildIosTossLink(payment);
+      const fallbackUrl = new URL(dependencies.pageUrl ?? 'https://example.invalid/');
+      fallbackUrl.hash = 'toss-help';
+      return buildTossLink(payment, fallbackUrl.toString());
+    }
+    // Bank apps have no confirmed iPhone link, and a wrong one makes Safari show an error.
+    return isIos ? null : buildAndroidBankLink(bank);
+  };
+
   const openBank = async (bank: BankOption): Promise<void> => {
     const copyOperation = dependencies.copy(seller.accountCopy);
-    const fallbackUrl = new URL(dependencies.pageUrl ?? 'https://example.invalid/');
-    fallbackUrl.hash = 'toss-help';
-    const link = bank.kind === 'toss'
-      ? buildTossLink(
-        { bank: seller.bank, accountNo: seller.accountCopy, amount: request.amount },
-        fallbackUrl.toString(),
-      )
-      : buildAndroidBankLink(bank);
+    const link = launchLink(bank);
 
     let launchFailed = false;
-    try {
-      dependencies.open(link);
-    } catch {
-      launchFailed = true;
+    if (link) {
+      try {
+        dependencies.open(link);
+      } catch {
+        launchFailed = true;
+      }
     }
 
     const copied = await copyOperation;
@@ -117,9 +128,13 @@ export function createPayApp(
     }
 
     if (copied) {
-      copyStatus.textContent = bank.kind === 'toss'
-        ? '계좌번호를 복사했습니다. 토스에서 받는 분과 금액을 확인하세요.'
-        : `계좌번호를 복사했습니다. ${bank.label} 앱에서 붙여넣고 금액을 입력하세요.`;
+      if (bank.kind === 'toss') {
+        copyStatus.textContent = '계좌번호를 복사했습니다. 토스에서 받는 분과 금액을 확인하세요.';
+      } else if (link) {
+        copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱에서 붙여넣고 금액을 입력하세요.`;
+      } else {
+        copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱을 직접 열어 붙여넣고 ${formatWon(request.amount)}을 입력하세요.`;
+      }
       copyStatus.className = 'copy-status copy-status--success';
     } else {
       copyStatus.textContent = '자동 복사가 되지 않았습니다. 위 계좌번호를 길게 눌러 복사해 주세요.';
@@ -193,6 +208,7 @@ if (mount) {
         window.location.href = url;
       },
       pageUrl: window.location.href,
+      platform: detectPlatform(navigator),
     });
   }
 }

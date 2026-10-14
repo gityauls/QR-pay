@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PRIMARY_BANKS } from '../src/lib/banks';
-import { buildAndroidBankLink, buildTossLink } from '../src/lib/deeplink';
+import { buildAndroidBankLink, buildIosTossLink, buildTossLink } from '../src/lib/deeplink';
 
 describe('bank deep links', () => {
   it('builds an Android intent for the selected bank app', () => {
@@ -26,5 +26,19 @@ describe('bank deep links', () => {
     expect(link).toContain('accountNo=1234567890');
     expect(link).toContain('amount=14000');
     expect(link).toContain('browser_fallback_url=');
+  });
+
+  it('builds an iPhone Toss transfer link without Android intent syntax', () => {
+    const link = buildIosTossLink({
+      bank: '농협은행',
+      accountNo: '123-456-7890',
+      amount: 14_000,
+    });
+
+    expect(link).toMatch(/^supertoss:\/\/send\?/);
+    expect(link).not.toContain('intent');
+    expect(link).toContain(encodeURIComponent('농협'));
+    expect(link).toContain('accountNo=1234567890');
+    expect(link).toContain('amount=14000');
   });
 });
