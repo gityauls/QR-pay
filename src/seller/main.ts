@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config';
+import { applyKey, type KeypadKey } from '../lib/keypad';
 import { formatWon, formatWonWords, parseAmount } from '../lib/money';
 import { buildPayUrl } from '../lib/pay-url';
 import {
@@ -12,11 +13,19 @@ import {
 } from '../lib/storage';
 import '../styles.css';
 
+type TimerHandle = ReturnType<typeof globalThis.setTimeout> | number;
+
+type TimerDependencies = {
+  setTimeout: (callback: () => void, delay: number) => TimerHandle;
+  clearTimeout: (handle: TimerHandle) => void;
+};
+
 type SellerDependencies = {
   storage: StorageLike;
   baseUrl: string;
   makeQr: (url: string) => Promise<string>;
   now: () => Date;
+  timers?: TimerDependencies;
 };
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -45,55 +54,75 @@ function defaultMakeQr(url: string): Promise<string> {
   });
 }
 
+function defaultTimers(): TimerDependencies {
+  return {
+    setTimeout: (callback, delay) => globalThis.setTimeout(callback, delay),
+    clearTimeout: (handle) => globalThis.clearTimeout(handle),
+  };
+}
+
 export function createSellerApp(
   root: HTMLElement,
   config: AppConfig,
   dependencies: SellerDependencies,
 ): void {
+  const timers = dependencies.timers ?? defaultTimers();
   let currentSellerId = loadCurrentSeller(dependencies.storage);
-  let amount: number | null = null;
-  let notice = '';
+  let digits = '';
+  let activeTimer: TimerHandle | null = null;
 
   const seller = (): Seller | null => getSeller(config, currentSellerId);
 
+  function clearActiveTimer(): void {
+    if (activeTimer === null) return;
+    timers.clearTimeout(activeTimer);
+    activeTimer = null;
+  }
+
   function replace(view: HTMLElement): void {
+    clearActiveTimer();
     root.replaceChildren(view);
   }
 
-  function sellerBanner(current: Seller): HTMLElement {
-    const banner = element('header', 'seller-banner');
-    banner.style.setProperty('--seller-color', current.color);
-    banner.append(
-      element('strong', 'seller-banner__title', `${current.label} 계좌로 받는 중`),
-      element('span', 'seller-banner__bank', current.bank),
+  function shell(modifier = ''): HTMLElement {
+    return element('section', `app-shell${modifier ? ` ${modifier}` : ''}`);
+  }
+
+  function sellerHeader(current: Seller): HTMLElement {
+    const header = element('header', 'app-header');
+    header.style.setProperty('--seller-color', current.color);
+    header.append(
+      element('span', 'app-header__caption', '현재 받는 분'),
+      element('strong', 'app-header__name', current.label),
+      element('span', 'app-header__account', `${current.bank}  ${current.accountDisplay}`),
     );
-    return banner;
+    return header;
   }
 
   function renderChoice(): void {
-    const view = element('section', 'screen screen--choice');
-    view.append(
-      element('p', 'eyebrow', config.shopName),
-      element('h1', undefined, '누가 받으시나요?'),
-      element('p', 'lead', '입금 알림을 확인할 분을 눌러 주세요.'),
+    const view = shell('seller-choice-screen');
+    const card = element('div', 'panel seller-choice-panel');
+    card.append(
+      element('p', 'app-kicker', config.shopName),
+      element('h1', undefined, '받는 분을 선택해 주세요'),
+      element('p', 'body-text muted', '처음 한 번만 선택하면 다음부터 바로 시작합니다.'),
     );
 
-    const choices = element('div', 'seller-choices');
+    const choices = element('div', 'seller-choice-list');
     for (const candidate of config.sellers) {
-      const choose = action(
-        `${candidate.label}\n${candidate.bank} 계좌로 받기`,
-        'seller-choice',
-      );
+      const choose = action(candidate.label, 'seller-choice-button');
       choose.style.setProperty('--seller-color', candidate.color);
+      choose.append(element('span', 'seller-choice-button__detail', `${candidate.bank}  ${candidate.accountDisplay}`));
       choose.addEventListener('click', () => {
         currentSellerId = candidate.id;
         saveCurrentSeller(dependencies.storage, candidate.id);
-        amount = null;
+        digits = '';
         renderAmount();
       });
       choices.append(choose);
     }
-    view.append(choices);
+    card.append(choices);
+    view.append(card);
     replace(view);
   }
 
@@ -105,84 +134,83 @@ export function createSellerApp(
       return;
     }
 
-    const view = element('section', 'screen');
-    view.append(sellerBanner(current));
+    const view = shell();
+    view.append(sellerHeader(current));
 
-    const topActions = element('div', 'top-actions');
-    const changeSeller = action('받는 분 바꾸기', 'button button--quiet');
-    changeSeller.addEventListener('click', () => {
-      currentSellerId = null;
-      amount = null;
-      renderChoice();
-    });
-    const showRecords = action('기록 보기', 'button button--quiet');
-    showRecords.addEventListener('click', renderRecords);
-    topActions.append(changeSeller, showRecords);
-    view.append(topActions);
+    const toolbar = element('div', 'toolbar');
+    const settings = action('설정', 'button button--secondary button--compact');
+    settings.addEventListener('click', renderSettings);
+    toolbar.append(settings);
+    view.append(toolbar);
 
-    const content = element('div', 'content-card amount-card');
-    content.append(
-      element('p', 'eyebrow', config.shopName),
-      element('h1', undefined, '받을 금액'),
-      element('p', 'lead', '손님에게 받을 최종 금액을 입력하세요.'),
-    );
+    const card = element('div', 'panel amount-panel');
+    card.append(element('h1', 'screen-title', '받을 금액을 입력해 주세요'));
 
-    const inputLabel = element('label', 'amount-label');
-    inputLabel.append(element('span', 'visually-hidden', '금액 입력'));
-    const input = element('input', 'amount-input');
-    input.dataset.testid = 'amount-input';
-    input.type = 'text';
-    input.inputMode = 'numeric';
-    input.autocomplete = 'off';
-    input.placeholder = '0';
-    input.setAttribute('aria-describedby', 'amount-help');
-    inputLabel.append(input, element('span', 'amount-suffix', '원'));
+    const amountDisplay = element('p', 'amount-display', '0원');
+    amountDisplay.dataset.testid = 'amount-display';
+    const amountWords = element('p', 'amount-words', '숫자 버튼을 눌러 주세요');
+    amountWords.setAttribute('aria-live', 'polite');
+    card.append(amountDisplay, amountWords);
 
-    const amountDisplay = element('p', 'amount-preview', '금액을 입력해 주세요');
-    amountDisplay.id = 'amount-help';
-    const amountWords = element('p', 'amount-words', '');
-    const showQr = action('QR 보여주기', 'button button--primary button--main');
-    showQr.disabled = true;
+    const keypad = element('div', 'keypad');
+    const keyDefinitions: Array<[KeypadKey, string, string]> = [
+      ['1', '1', ''], ['2', '2', ''], ['3', '3', ''],
+      ['4', '4', ''], ['5', '5', ''], ['6', '6', ''],
+      ['7', '7', ''], ['8', '8', ''], ['9', '9', ''],
+      ['clear', '전체 지우기', 'keypad__utility'],
+      ['0', '0', ''],
+      ['backspace', '한 글자 지우기', 'keypad__utility'],
+    ];
 
-    input.addEventListener('input', () => {
-      const digits = input.value.replace(/\D/g, '').slice(0, 6);
-      input.value = digits;
-      amount = parseAmount(digits);
-      showQr.disabled = amount === null;
-      amountDisplay.textContent = amount === null ? '금액을 입력해 주세요' : formatWon(amount);
-      amountWords.textContent = amount === null ? '100원부터 50만원까지 입력할 수 있어요.' : `(${formatWonWords(amount)})`;
-    });
-    showQr.addEventListener('click', () => void renderQr());
+    const createQr = action('QR 만들기', 'button button--primary primary-action');
+    createQr.disabled = true;
 
-    content.append(inputLabel, amountDisplay, amountWords);
-    if (notice) {
-      content.append(element('p', 'notice', notice));
-      notice = '';
+    function refreshAmount(): void {
+      const numeric = digits ? Number(digits) : 0;
+      const valid = parseAmount(digits);
+      amountDisplay.textContent = formatWon(numeric);
+      if (!digits) amountWords.textContent = '숫자 버튼을 눌러 주세요';
+      else if (valid === null) amountWords.textContent = '1,000원 단위로 입력해 주세요';
+      else amountWords.textContent = formatWonWords(valid);
+      createQr.disabled = valid === null;
     }
-    content.append(showQr);
-    view.append(content);
+
+    for (const [key, label, extraClass] of keyDefinitions) {
+      const keyButton = action(label, `keypad__key${extraClass ? ` ${extraClass}` : ''}`);
+      keyButton.dataset.keypadKey = key;
+      keyButton.setAttribute('aria-label', label);
+      keyButton.addEventListener('click', () => {
+        digits = applyKey(digits, key);
+        refreshAmount();
+      });
+      keypad.append(keyButton);
+    }
+
+    createQr.addEventListener('click', () => void renderQr());
+    card.append(keypad, createQr);
+    view.append(card);
     replace(view);
-    input.focus();
   }
 
   async function renderQr(): Promise<void> {
     const current = seller();
+    const amount = parseAmount(digits);
     if (!current || amount === null) return;
 
     const confirmedAmount = amount;
     const payUrl = buildPayUrl(dependencies.baseUrl, current.id, confirmedAmount);
-    const view = element('section', 'screen screen--qr');
-    view.append(sellerBanner(current));
+    const view = shell('qr-screen');
+    view.append(sellerHeader(current));
 
-    const content = element('div', 'content-card qr-card');
-    content.append(
-      element('p', 'qr-recipient', `받는 분: ${current.label}`),
-      element('p', 'qr-amount', formatWon(confirmedAmount)),
-      element('p', 'amount-words', `(${formatWonWords(confirmedAmount)})`),
+    const card = element('div', 'panel qr-panel');
+    card.append(
+      element('p', 'qr-label', '고객에게 이 QR을 보여 주세요'),
+      element('h1', 'qr-amount', formatWon(confirmedAmount)),
+      element('p', 'amount-words', formatWonWords(confirmedAmount)),
     );
-    const status = element('p', 'lead', 'QR을 준비하고 있어요…');
-    content.append(status);
-    view.append(content);
+    const status = element('p', 'body-text muted', 'QR을 만들고 있습니다.');
+    card.append(status);
+    view.append(card);
     replace(view);
 
     try {
@@ -194,60 +222,67 @@ export function createSellerApp(
       image.alt = `${formatWon(confirmedAmount)} 송금 안내 QR 코드`;
       frame.append(image);
       status.replaceWith(frame);
+      card.append(element('p', 'auto-return', '15초 후 다음 손님 화면으로 자동 이동합니다.'));
 
-      content.append(
-        element('p', 'lead', '손님 휴대폰 카메라로 찍어 주세요.'),
-        element('p', 'confirm-guide', `${current.label} 휴대폰에 입금 알림이 왔는지 먼저 확인하세요.`),
-      );
-      const confirm = action('입금 확인 후 다음 손님', 'button button--success button--main');
-      confirm.addEventListener('click', () => {
-        const saved = recordSale(dependencies.storage, {
-          occurredAt: dependencies.now().toISOString(),
-          sellerId: current.id,
-          amount: confirmedAmount,
-        });
-        amount = null;
-        notice = saved ? '판매 기록을 저장했어요.' : '기록은 저장하지 못했지만 다음 결제를 계속할 수 있어요.';
-        renderAmount();
+      recordSale(dependencies.storage, {
+        occurredAt: dependencies.now().toISOString(),
+        sellerId: current.id,
+        amount: confirmedAmount,
       });
-      const retry = action('금액 다시 입력', 'button button--quiet');
-      retry.addEventListener('click', renderAmount);
-      content.append(confirm, retry);
+
+      activeTimer = timers.setTimeout(() => {
+        activeTimer = null;
+        digits = '';
+        renderAmount();
+      }, 15_000);
     } catch {
-      status.textContent = 'QR을 만들지 못했어요. 금액을 다시 입력해 주세요.';
-      const retry = action('금액 다시 입력', 'button button--primary');
+      status.textContent = 'QR을 만들지 못했습니다. 다시 시도해 주세요.';
+      const retry = action('금액 입력으로 돌아가기', 'button button--primary primary-action');
       retry.addEventListener('click', renderAmount);
-      content.append(retry);
+      card.append(retry);
     }
   }
 
-  function renderRecords(): void {
+  function renderSettings(): void {
+    const current = seller();
+    if (!current) {
+      renderChoice();
+      return;
+    }
+
     const summary = getTodaySummary(getSales(dependencies.storage), dependencies.now());
-    const view = element('section', 'screen');
-    const content = element('div', 'content-card records-card');
-    content.append(
-      element('h1', undefined, '오늘 판매 기록'),
-      element('p', 'record-total', `오늘 판매 ${summary.count}건`),
+    const view = shell();
+    view.append(sellerHeader(current));
+    const card = element('div', 'panel settings-panel');
+    card.append(
+      element('h1', 'screen-title', '설정'),
+      element('p', 'record-total', `오늘 QR ${summary.count}건`),
       element('p', 'record-amount', formatWon(summary.total)),
     );
 
     const list = element('ol', 'record-list');
     if (summary.entries.length === 0) {
-      list.append(element('li', 'record-empty', '아직 저장된 판매가 없어요.'));
+      list.append(element('li', 'record-empty', '오늘 만든 QR이 없습니다.'));
     } else {
       for (const sale of summary.entries) {
-        const label = getSeller(config, sale.sellerId)?.label ?? `사용자 ${sale.sellerId}`;
         const time = new Date(sale.occurredAt).toLocaleTimeString('ko-KR', {
           hour: '2-digit',
           minute: '2-digit',
         });
-        list.append(element('li', 'record-item', `${time} · ${label} · ${formatWon(sale.amount)}`));
+        list.append(element('li', 'record-item', `${time} · ${formatWon(sale.amount)}`));
       }
     }
-    const close = action('금액 입력으로 돌아가기', 'button button--primary button--main');
-    close.addEventListener('click', renderAmount);
-    content.append(list, close);
-    view.append(content);
+
+    const changeSeller = action('받는 분 바꾸기', 'button button--secondary primary-action');
+    changeSeller.addEventListener('click', () => {
+      currentSellerId = null;
+      digits = '';
+      renderChoice();
+    });
+    const back = action('금액 입력으로 돌아가기', 'button button--primary primary-action');
+    back.addEventListener('click', renderAmount);
+    card.append(list, changeSeller, back);
+    view.append(card);
     replace(view);
   }
 
