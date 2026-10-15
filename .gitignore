@@ -6,3 +6,4 @@ dist/
 .superpowers/
 playwright-report/
 test-results/
+.worktrees/
