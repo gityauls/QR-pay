@@ -73,6 +73,15 @@ describe('seller app local setup', () => {
     expect(css).toContain('min-height: 48px');
   });
 
+  it('fills the phone height while keeping elderly-friendly keypad spacing', () => {
+    const css = readFileSync(resolve(import.meta.dirname, '..', 'src', 'styles.css'), 'utf8');
+    expect(css).toMatch(/\.app-shell--compact\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
+    expect(css).toMatch(/\.app-shell--compact \.amount-panel\s*\{[^}]*display:\s*flex[^}]*flex:\s*1/s);
+    expect(css).toMatch(/\.app-shell--compact \.keypad\s*\{[^}]*flex:\s*1[^}]*gap:\s*8px/s);
+    expect(css).toContain('grid-template-rows: repeat(4, minmax(48px, 1fr))');
+    expect(css).not.toContain('min-height: 42px');
+  });
+
   it('starts with setup, saves the first recipient, then shows install help', () => {
     const element = root();
     createSellerApp(element, createDependencies());

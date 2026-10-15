@@ -701,6 +701,8 @@ h1,
 }
 
 .app-shell--compact {
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
   padding-right: 10px;
   padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -715,6 +717,7 @@ h1,
 }
 
 .app-shell--compact .app-header + .panel {
+  flex: 1;
   margin-top: 8px;
 }
 
@@ -739,6 +742,10 @@ h1,
 }
 
 .app-shell--compact .amount-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
   padding: 8px 10px;
   border-radius: 16px;
 }
@@ -765,22 +772,24 @@ h1,
 }
 
 .app-shell--compact .quick-amounts {
-  gap: 6px;
-  margin-bottom: 7px;
+  gap: 8px;
+  margin-bottom: 9px;
 }
 
 .app-shell--compact .quick-amount {
-  min-height: 46px;
+  min-height: 48px;
   border-radius: 10px;
   font-size: 1.05rem;
 }
 
 .app-shell--compact .keypad {
-  gap: 6px;
+  flex: 1;
+  grid-template-rows: repeat(4, minmax(48px, 1fr));
+  gap: 8px;
 }
 
 .app-shell--compact .keypad__key {
-  min-height: 46px;
+  min-height: 48px;
   padding: 4px;
   border-radius: 10px;
   font-size: 1.45rem;
@@ -791,8 +800,8 @@ h1,
 }
 
 .app-shell--compact .primary-action {
-  min-height: 48px;
-  margin-top: 8px;
+  min-height: 52px;
+  margin-top: 10px;
   font-size: 1.2rem;
 }
 
@@ -807,9 +816,12 @@ h1,
     padding-bottom: 6px;
   }
 
-  .app-shell--compact .quick-amount,
-  .app-shell--compact .keypad__key {
-    min-height: 42px;
+  .app-shell--compact .amount-words {
+    margin-bottom: 4px;
+  }
+
+  .app-shell--compact .quick-amounts {
+    margin-bottom: 7px;
   }
 }
 
