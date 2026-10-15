@@ -17,18 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_SHOP_NAME: ${{ vars.QR_PAY_SHOP_NAME }}
-      VITE_USER1_LABEL: ${{ vars.QR_PAY_USER1_LABEL }}
-      VITE_USER1_COLOR: ${{ vars.QR_PAY_USER1_COLOR }}
-      VITE_USER1_BANK: ${{ vars.QR_PAY_USER1_BANK }}
-      VITE_USER1_HOLDER: ${{ secrets.QR_PAY_USER1_HOLDER }}
-      VITE_USER1_ACCOUNT: ${{ secrets.QR_PAY_USER1_ACCOUNT }}
-      VITE_USER2_LABEL: ${{ vars.QR_PAY_USER2_LABEL }}
-      VITE_USER2_COLOR: ${{ vars.QR_PAY_USER2_COLOR }}
-      VITE_USER2_BANK: ${{ vars.QR_PAY_USER2_BANK }}
-      VITE_USER2_HOLDER: ${{ secrets.QR_PAY_USER2_HOLDER }}
-      VITE_USER2_ACCOUNT: ${{ secrets.QR_PAY_USER2_ACCOUNT }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -41,8 +29,6 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm run test:run
-      - name: Validate account configuration
-        run: npm run validate:deploy-env
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5

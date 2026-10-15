@@ -566,6 +566,253 @@ h1,
   line-height: 64px;
 }
 
+.setup-screen,
+.install-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.setup-panel,
+.install-panel {
+  margin: auto 0;
+}
+
+.form-field {
+  display: block;
+  margin: 12px 0;
+  text-align: left;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.form-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 2px solid #9ca3af;
+  border-radius: 10px;
+  color: #111827;
+  background: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.form-error {
+  min-height: 1.5em;
+  margin: 8px 0;
+  color: var(--danger);
+  font-weight: 850;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--soft-gray);
+  text-align: left;
+}
+
+.settings-row__value,
+.settings-heading {
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.settings-heading {
+  margin: 20px 0 10px;
+  text-align: left;
+}
+
+.seller-manage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.seller-manage-card {
+  padding: 13px;
+  border-left: 8px solid var(--seller-color, var(--primary));
+  border-radius: 12px;
+  background: var(--soft-gray);
+  text-align: left;
+}
+
+.seller-manage-card__name,
+.seller-manage-card__detail {
+  display: block;
+}
+
+.seller-manage-card__name {
+  font-size: 1.25rem;
+}
+
+.seller-manage-card__detail {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.seller-manage-actions,
+.delete-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.delete-confirm {
+  padding: 10px;
+  border-radius: 10px;
+  background: #fef2f2;
+}
+
+.delete-confirm p {
+  width: 100%;
+  margin: 0;
+  font-weight: 850;
+}
+
+.button--small {
+  min-height: 44px;
+  padding: 7px 14px;
+  font-size: 1rem;
+}
+
+.button--danger {
+  color: #ffffff;
+  background: var(--danger);
+}
+
+.record-summary {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--soft-blue);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.app-shell--compact {
+  min-height: 100dvh;
+  padding-right: 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-left: 10px;
+}
+
+.app-shell--compact .app-header {
+  margin-right: -10px;
+  margin-left: -10px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  column-gap: 8px;
+}
+
+.app-shell--compact .app-header + .panel {
+  margin-top: 8px;
+}
+
+.app-shell--compact .app-header__caption {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.app-shell--compact .app-header__name {
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+}
+
+.app-shell--compact .app-header__account {
+  margin-top: 3px;
+  font-size: clamp(0.9rem, 4vw, 1.08rem);
+}
+
+.app-shell--compact .button--compact {
+  min-height: 44px;
+  padding: 7px 13px;
+  font-size: 1rem;
+}
+
+.app-shell--compact .amount-panel {
+  padding: 8px 10px;
+  border-radius: 16px;
+}
+
+.app-shell--compact .amount-title {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.app-shell--compact .amount-display {
+  min-height: 0;
+  margin: 0;
+  padding: 5px;
+  border-width: 2px;
+  border-radius: 11px;
+  font-size: clamp(2.15rem, 10vw, 3rem);
+}
+
+.app-shell--compact .amount-words {
+  min-height: 1.25em;
+  margin: 3px 0 6px;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.app-shell--compact .quick-amounts {
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.app-shell--compact .quick-amount {
+  min-height: 46px;
+  border-radius: 10px;
+  font-size: 1.05rem;
+}
+
+.app-shell--compact .keypad {
+  gap: 6px;
+}
+
+.app-shell--compact .keypad__key {
+  min-height: 46px;
+  padding: 4px;
+  border-radius: 10px;
+  font-size: 1.45rem;
+}
+
+.app-shell--compact .keypad__utility {
+  font-size: 0.82rem;
+}
+
+.app-shell--compact .primary-action {
+  min-height: 48px;
+  margin-top: 8px;
+  font-size: 1.2rem;
+}
+
+@media (max-height: 700px) {
+  .app-shell--compact .app-header {
+    padding-top: max(7px, env(safe-area-inset-top));
+    padding-bottom: 7px;
+  }
+
+  .app-shell--compact .amount-panel {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .app-shell--compact .quick-amount,
+  .app-shell--compact .keypad__key {
+    min-height: 42px;
+  }
+}
+
 @media (max-width: 370px) {
   .app-shell,
   .pay-screen {

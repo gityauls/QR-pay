@@ -1,4 +1,4 @@
-import { getSeller, readAppConfig, type AppConfig, type Seller } from '../config';
+import type { Seller } from '../config';
 import { nonghyupKind, OTHER_BANKS, PRIMARY_BANKS, type BankOption } from '../lib/banks';
 import { copyText } from '../lib/clipboard';
 import { buildAndroidBankLink, buildIosTossLink, buildTossLink } from '../lib/deeplink';
@@ -9,18 +9,14 @@ import { registerPwa } from '../pwa';
 import '../styles.css';
 
 type PayDependencies = {
-  search: string;
+  hash: string;
   copy: (text: string) => Promise<boolean>;
   open: (url: string) => void;
   pageUrl?: string;
   platform?: Platform;
 };
 
-function element<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
+function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -42,9 +38,7 @@ function renderError(root: HTMLElement, message: string): void {
 function accountCard(seller: Seller): HTMLElement {
   const account = element('dl', 'account-card account-panel');
   for (const [label, value] of [
-    ['받는 은행', seller.bank],
-    ['예금주', seller.holder],
-    ['계좌번호', seller.accountDisplay],
+    ['받는 은행', seller.bank], ['예금주', seller.holder], ['계좌번호', seller.accountDisplay],
   ] as const) {
     const row = element('div', 'account-row');
     row.append(element('dt', undefined, label), element('dd', undefined, value));
@@ -53,102 +47,74 @@ function accountCard(seller: Seller): HTMLElement {
   return account;
 }
 
-export function createPayApp(
-  root: HTMLElement,
-  config: AppConfig,
-  dependencies: PayDependencies,
-): void {
-  const request = parsePaymentRequest(dependencies.search);
+export function createPayApp(root: HTMLElement, dependencies: PayDependencies): void {
+  const request = parsePaymentRequest(dependencies.hash);
   if (!request.ok) {
     renderError(root, request.message);
     return;
   }
-
-  const seller = getSeller(config, request.sellerId);
-  if (!seller) {
-    renderError(root, '받는 분의 계좌를 찾을 수 없습니다. 판매자에게 새 QR을 요청해 주세요.');
-    return;
-  }
-
+  const { seller } = request;
   const view = element('section', 'pay-screen');
   const card = element('div', 'panel pay-card');
   card.style.setProperty('--seller-color', seller.color);
   card.append(
-    element('p', 'app-kicker', config.shopName),
+    element('p', 'app-kicker', request.shopName),
     element('p', 'pay-label', '보낼 금액'),
   );
-
   const amount = element('h1', 'pay-amount', formatWon(request.amount));
   amount.dataset.testid = 'pay-amount';
-  card.append(
-    amount,
-    element('p', 'amount-words', formatWonWords(request.amount)),
-    accountCard(seller),
-  );
+  card.append(amount, element('p', 'amount-words', formatWonWords(request.amount)), accountCard(seller));
 
   const copyStatus = element(
-    'p',
-    'copy-status',
+    'p', 'copy-status',
     '은행 앱을 누르면 계좌번호가 먼저 복사됩니다. 앱이 열리지 않으면 직접 앱을 열어 붙여넣으세요.',
   );
   copyStatus.setAttribute('role', 'status');
-
   const isIos = dependencies.platform === 'ios';
 
   const launchLink = (bank: BankOption): string | null => {
     if (bank.kind === 'toss') {
       const payment = { bank: seller.bank, accountNo: seller.accountCopy, amount: request.amount };
-      if (isIos) return buildIosTossLink(payment);
-      const fallbackUrl = new URL(dependencies.pageUrl ?? 'https://example.invalid/');
-      fallbackUrl.hash = 'toss-help';
-      return buildTossLink(payment, fallbackUrl.toString());
+      return isIos
+        ? buildIosTossLink(payment)
+        : buildTossLink(payment, dependencies.pageUrl ?? 'https://example.invalid/');
     }
-    // Bank apps have no confirmed iPhone link, and a wrong one makes Safari show an error.
     return isIos ? null : buildAndroidBankLink(bank);
   };
 
   const openBank = async (bank: BankOption): Promise<void> => {
     const copyOperation = dependencies.copy(seller.accountCopy);
     const link = launchLink(bank);
-
     let launchFailed = false;
     if (link) {
-      try {
-        dependencies.open(link);
-      } catch {
-        launchFailed = true;
-      }
+      try { dependencies.open(link); } catch { launchFailed = true; }
     }
-
     const copied = await copyOperation;
     if (launchFailed) {
       copyStatus.textContent = '앱을 열지 못했습니다. 계좌번호를 복사했으니 은행 앱을 직접 열어 주세요.';
       copyStatus.className = 'copy-status copy-status--error';
       return;
     }
-
-    if (copied) {
-      if (bank.kind === 'toss') {
-        copyStatus.textContent = '계좌번호를 복사했습니다. 토스에서 받는 분과 금액을 확인하세요.';
-      } else if (link) {
-        copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱에서 붙여넣고 금액을 입력하세요.`;
-      } else {
-        copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱을 직접 열어 붙여넣고 ${formatWon(request.amount)}을 입력하세요.`;
-      }
-      copyStatus.className = 'copy-status copy-status--success';
-    } else {
+    if (!copied) {
       copyStatus.textContent = '자동 복사가 되지 않았습니다. 위 계좌번호를 길게 눌러 복사해 주세요.';
       copyStatus.className = 'copy-status copy-status--error';
+      return;
     }
-
+    if (bank.kind === 'toss') {
+      copyStatus.textContent = '계좌번호를 복사했습니다. 토스에서 받는 분과 금액을 확인하세요.';
+    } else if (link) {
+      copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱에서 붙여넣고 금액을 입력하세요.`;
+    } else {
+      copyStatus.textContent = `계좌번호를 복사했습니다. ${bank.label} 앱을 직접 열어 붙여넣고 ${formatWon(request.amount)}을 입력하세요.`;
+    }
+    copyStatus.className = 'copy-status copy-status--success';
   };
 
   const bankSection = element('section', 'bank-section');
   bankSection.append(
     element('h2', 'bank-title', '사용할 은행 앱을 선택하세요'),
-    element('p', 'bank-help', '고객님이 송금할 때 쓰는 은행을 누르세요.'),
+    element('p', 'bank-help', '마지막 송금 전 받는 분과 금액을 확인하세요.'),
   );
-
   const bankGrid = element('div', 'bank-grid');
   const appendBanks = (banks: readonly BankOption[]) => {
     for (const bank of banks) {
@@ -161,7 +127,6 @@ export function createPayApp(
     }
   };
   appendBanks(PRIMARY_BANKS);
-
   const moreButton = element('button', 'button button--secondary more-banks', '다른 은행 보기');
   moreButton.type = 'button';
   moreButton.setAttribute('aria-expanded', 'false');
@@ -174,24 +139,20 @@ export function createPayApp(
 
   const steps = element('aside', 'manual-steps');
   steps.append(
-    element('h2', undefined, '은행 앱이 열리면'),
+    element('h2', undefined, '직접 송금하려면'),
     element('p', undefined, nonghyupKind(seller.bank) === 'local'
       ? '1. 받는 은행에서 지역농·축협을 선택하세요. 목록에 없으면 농협을 선택하세요.'
       : `1. 받는 은행에서 ${seller.bank}을 선택하세요.`),
-    element('p', undefined, '2. 복사된 계좌번호를 붙여넣으세요.'),
+    element('p', undefined, '2. 복사한 계좌번호를 붙여넣으세요.'),
     element('p', 'manual-amount', `3. ${formatWon(request.amount)}을 입력하고 받는 분을 확인하세요.`),
   );
-
   const copyOnly = element('button', 'button button--text', '계좌번호만 다시 복사');
   copyOnly.type = 'button';
   copyOnly.addEventListener('click', async () => {
     const copied = await dependencies.copy(seller.accountCopy);
-    copyStatus.textContent = copied
-      ? '계좌번호를 복사했습니다.'
-      : '복사되지 않았습니다. 계좌번호를 길게 눌러 복사해 주세요.';
+    copyStatus.textContent = copied ? '계좌번호를 복사했습니다.' : '복사되지 않았습니다. 계좌번호를 길게 눌러 복사해 주세요.';
     copyStatus.className = copied ? 'copy-status copy-status--success' : 'copy-status copy-status--error';
   });
-
   card.append(bankSection, steps, copyOnly);
   view.append(card);
   root.replaceChildren(view);
@@ -200,17 +161,11 @@ export function createPayApp(
 const mount = document.querySelector<HTMLElement>('[data-pay-app]');
 if (mount) {
   void registerPwa(navigator, new URL('../', document.baseURI).toString());
-  const config = readAppConfig();
-  if (!config.ok) renderError(mount, config.message);
-  else {
-    createPayApp(mount, config.value, {
-      search: window.location.search,
-      copy: (value) => copyText(value),
-      open: (url) => {
-        window.location.href = url;
-      },
-      pageUrl: window.location.href,
-      platform: detectPlatform(navigator),
-    });
-  }
+  createPayApp(mount, {
+    hash: window.location.hash,
+    copy: (value) => copyText(value),
+    open: (url) => { window.location.href = url; },
+    pageUrl: window.location.href,
+    platform: detectPlatform(navigator),
+  });
 }

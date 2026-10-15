@@ -23,13 +23,13 @@ class MemoryStorage implements StorageLike {
 describe('current seller storage', () => {
   it('stores and restores a valid seller id', () => {
     const storage = new MemoryStorage();
-    expect(saveCurrentSeller(storage, '2')).toBe(true);
-    expect(loadCurrentSeller(storage)).toBe('2');
+    expect(saveCurrentSeller(storage, 'seller-a')).toBe(true);
+    expect(loadCurrentSeller(storage)).toBe('seller-a');
   });
 
   it('ignores a damaged seller id', () => {
     const storage = new MemoryStorage();
-    storage.setItem('qrpay.currentSeller', '3');
+    storage.setItem('qrpay.currentSeller', '');
     expect(loadCurrentSeller(storage)).toBeNull();
   });
 });

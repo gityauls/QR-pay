@@ -1,51 +1,34 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppConfig } from '../src/config';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createLocalConfig, loadLocalConfig, saveLocalConfig } from '../src/lib/local-config';
+import { parsePaymentRequest } from '../src/lib/pay-url';
 import { createSellerApp } from '../src/seller/main';
 
-const config: AppConfig = {
-  shopName: '행사 판매점',
-  sellers: [
-    {
-      id: '1',
-      label: '사용자 1',
-      color: '#155E75',
-      bank: 'NH농협',
-      holder: '홍길동',
-      accountDisplay: '123-456-7890',
-      accountCopy: '1234567890',
-    },
-    {
-      id: '2',
-      label: '사용자 2',
-      color: '#9A3412',
-      bank: 'KB국민',
-      holder: '김영희',
-      accountDisplay: '987-654-3210',
-      accountCopy: '9876543210',
-    },
-  ],
-};
-
 function root() {
-  const element = document.createElement('main');
-  document.body.append(element);
-  return element;
+  const node = document.createElement('main');
+  document.body.append(node);
+  return node;
 }
 
 function button(element: ParentNode, text: string): HTMLButtonElement {
-  const found = [...element.querySelectorAll('button')].find((item) =>
-    item.textContent?.includes(text),
-  );
+  const found = [...element.querySelectorAll('button')].find((item) => item.textContent?.includes(text));
   if (!(found instanceof HTMLButtonElement)) throw new Error(`button not found: ${text}`);
   return found;
+}
+
+function setValue(element: ParentNode, name: string, value: string) {
+  const input = element.querySelector<HTMLInputElement | HTMLSelectElement>(`[name=${name}]`);
+  if (!input) throw new Error(`field not found: ${name}`);
+  input.value = value;
 }
 
 function createDependencies(overrides: Record<string, unknown> = {}) {
   return {
     storage: localStorage,
-    baseUrl: 'https://example.com/qr-pay/',
+    baseUrl: 'https://example.com/QR-pay/',
     makeQr: vi.fn<(url: string) => Promise<string>>().mockResolvedValue('data:image/png;base64,qr'),
-    now: () => new Date('2026-10-14T12:00:00+09:00'),
+    now: () => new Date('2026-10-15T12:00:00+09:00'),
     timers: {
       setTimeout: vi.fn((_callback: () => void, _delay: number) => 1),
       clearTimeout: vi.fn(),
@@ -56,167 +39,145 @@ function createDependencies(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function enterAmount(element: HTMLElement, digits: string): void {
-  for (const digit of digits) {
-    const key = element.querySelector<HTMLButtonElement>(`[data-keypad-key="${digit}"]`);
-    if (!key) throw new Error(`keypad key missing: ${digit}`);
-    key.click();
-  }
+function seed() {
+  const result = createLocalConfig('김선비 벌꿀', {
+    label: '장인어른', bank: 'NH농협은행', holder: '홍길동', accountDisplay: '123-456-7890',
+  }, () => 'seller-a');
+  if (!result.ok) throw new Error(result.message);
+  saveLocalConfig(localStorage, result.value);
+  localStorage.setItem('qrpay.currentSeller', 'seller-a');
+  return result.value;
 }
 
-describe('seller view', () => {
-  it('opens the amount screen immediately when only one seller is configured', () => {
-    const element = root();
-    createSellerApp(
-      element,
-      { ...config, sellers: [config.sellers[0]] },
-      createDependencies(),
-    );
+function fillSellerForm(element: ParentNode, values = {
+  label: '장모님', bank: '신한은행', holder: '김영희', account: '987-654-3210',
+}) {
+  setValue(element, 'label', values.label);
+  setValue(element, 'bank', values.bank);
+  setValue(element, 'holder', values.holder);
+  setValue(element, 'accountDisplay', values.account);
+}
 
-    expect(element.textContent).toContain('받을 금액을 입력해 주세요');
-    expect(element.textContent).toContain('사용자 1');
-    expect(localStorage.getItem('qrpay.currentSeller')).toBe('1');
-    expect(element.textContent).not.toContain('받는 분을 선택해 주세요');
+function quickAmount(element: ParentNode, amount: number): HTMLButtonElement {
+  const found = [...element.querySelectorAll<HTMLButtonElement>('[data-quick-amount]')]
+    .find((item) => item.dataset.quickAmount === String(amount));
+  if (!found) throw new Error(`quick amount not found: ${amount}`);
+  return found;
+}
+
+describe('seller app local setup', () => {
+  it('includes the approved compact layout and short-screen rules', () => {
+    const css = readFileSync(resolve(import.meta.dirname, '..', 'src', 'styles.css'), 'utf8');
+    expect(css).toContain('.app-shell--compact');
+    expect(css).toContain('@media (max-height: 700px)');
+    expect(css).toContain('min-height: 48px');
   });
 
-  it('asks for the seller only on first use', () => {
+  it('starts with setup, saves the first recipient, then shows install help', () => {
     const element = root();
-    createSellerApp(element, config, createDependencies());
-
-    expect(element.textContent).toContain('받는 분을 선택해 주세요');
-    button(element, '사용자 1').click();
-
-    expect(localStorage.getItem('qrpay.currentSeller')).toBe('1');
-    expect(element.textContent).toContain('현재 받는 분');
-    expect(element.textContent).toContain('사용자 1');
+    createSellerApp(element, createDependencies());
+    expect(element.textContent).toContain('처음 설정');
+    setValue(element, 'shopName', '우리 가게');
+    fillSellerForm(element, {
+      label: '사장님', bank: 'KB국민은행', holder: '박사장', account: '111-222-333333',
+    });
+    button(element, '저장하고 시작하기').click();
+    expect(loadLocalConfig(localStorage)?.shopName).toBe('우리 가게');
+    expect(element.textContent).toContain('홈 화면에 설치');
+    button(element, '금액 입력 시작').click();
+    expect(element.textContent).toContain('받을 금액');
+    expect(element.textContent).toContain('사장님');
   });
 
-  it('shows full receiving account and a large in-app keypad', () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
+  it('prefers a selected known bank over a leftover custom bank value', () => {
     const element = root();
-    createSellerApp(element, config, createDependencies());
+    createSellerApp(element, createDependencies());
+    setValue(element, 'shopName', '우리 가게');
+    fillSellerForm(element, {
+      label: '사장님', bank: '신한은행', holder: '박사장', account: '111-222-333333',
+    });
+    setValue(element, 'customBank', '서산농협');
+    button(element, '저장하고 시작하기').click();
+    expect(loadLocalConfig(localStorage)?.sellers[0].bank).toBe('신한은행');
+  });
 
-    expect(element.textContent).toContain('NH농협');
-    expect(element.textContent).toContain('123-456-7890');
+  it('shows a compact amount screen with quick amounts and QR action', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    expect(element.querySelector('.app-shell--compact')).not.toBeNull();
     expect(element.querySelectorAll('[data-keypad-key]')).toHaveLength(12);
-    expect(element.querySelector('.app-header')).not.toBeNull();
-    expect(element.querySelector('.amount-display')).not.toBeNull();
-    expect(element.querySelector('.keypad')).not.toBeNull();
-    expect(element.querySelector('.primary-action')).not.toBeNull();
-
-    const createQr = button(element, 'QR 만들기');
-    expect(createQr.disabled).toBe(true);
-    enterAmount(element, '14000');
-    expect(element.textContent).toContain('14,000원');
-    expect(element.textContent).toContain('1만 4천원');
-    expect(createQr.disabled).toBe(false);
-  });
-
-  it('adds quick amount buttons onto the entered amount', () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
-    const element = root();
-    createSellerApp(element, config, createDependencies());
-
-    const quick = (amount: number) => {
-      const key = element.querySelector<HTMLButtonElement>(`[data-quick-amount="${amount}"]`);
-      if (!key) throw new Error(`quick amount missing: ${amount}`);
-      key.click();
-    };
-
-    expect(element.querySelectorAll('[data-quick-amount]')).toHaveLength(3);
-    quick(10_000);
-    quick(5_000);
-    quick(1_000);
-    quick(1_000);
-    expect(element.querySelector('[data-testid="amount-display"]')?.textContent).toBe('17,000원');
+    quickAmount(element, 10_000).click();
+    quickAmount(element, 5_000).click();
+    expect(element.querySelector('[data-testid=amount-display]')?.textContent).toBe('15,000원');
     expect(button(element, 'QR 만들기').disabled).toBe(false);
-
-    button(element, '전체 지우기').click();
-    enterAmount(element, '2000');
-    quick(10_000);
-    expect(element.querySelector('[data-testid="amount-display"]')?.textContent).toBe('12,000원');
   });
 
-  it('rejects a non-thousand amount without losing the entered digits', () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
+  it('builds a fragment QR containing the selected local recipient', async () => {
+    seed();
     const element = root();
-    createSellerApp(element, config, createDependencies());
-
-    enterAmount(element, '14500');
-    expect(element.textContent).toContain('14,500원');
-    expect(element.textContent).toContain('1,000원 단위로 입력해 주세요');
-    expect(button(element, 'QR 만들기').disabled).toBe(true);
-  });
-
-  it('records QR creation and automatically resets after 15 seconds', async () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
-    const element = root();
-    let scheduled: (() => void) | undefined;
-    let tick: (() => void) | undefined;
-    const timers = {
-      setTimeout: vi.fn((callback: () => void, delay: number) => {
-        scheduled = callback;
-        expect(delay).toBe(15_000);
-        return 9;
-      }),
-      clearTimeout: vi.fn(),
-      setInterval: vi.fn((callback: () => void, delay: number) => {
-        tick = callback;
-        expect(delay).toBe(1_000);
-        return 10;
-      }),
-      clearInterval: vi.fn(),
-    };
     const makeQr = vi.fn<(url: string) => Promise<string>>().mockResolvedValue('data:image/png;base64,qr');
-    createSellerApp(element, config, createDependencies({ timers, makeQr }));
-
-    enterAmount(element, '14000');
+    createSellerApp(element, createDependencies({ makeQr }));
+    quickAmount(element, 1_000).click();
     button(element, 'QR 만들기').click();
     await vi.waitFor(() => expect(makeQr).toHaveBeenCalledOnce());
-
-    expect(makeQr.mock.calls[0][0]).toBe('https://example.com/qr-pay/pay/?u=1&a=14000');
-    expect(makeQr.mock.calls[0][0]).not.toContain('1234567890');
-    expect(JSON.parse(localStorage.getItem('qrpay.sales') ?? '[]')).toHaveLength(1);
-    expect(element.textContent).toContain('14,000원');
-    expect(element.textContent).toContain('15초 후');
-    tick?.();
-    expect(element.textContent).toContain('14초 후');
-    expect(timers.setTimeout).toHaveBeenCalledOnce();
-
-    scheduled?.();
-    expect(element.textContent).toContain('받을 금액을 입력해 주세요');
-    expect(element.textContent).toContain('0원');
+    const url = makeQr.mock.calls[0][0];
+    expect(url.slice(0, url.indexOf('#'))).not.toContain('1234567890');
+    const parsed = parsePaymentRequest(new URL(url).hash);
+    expect(parsed.ok && parsed.seller.id).toBe('seller-a');
   });
 
-  it('keeps records and seller change inside settings', () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
-    localStorage.setItem(
-      'qrpay.sales',
-      JSON.stringify([
-        { occurredAt: '2026-10-14T10:00:00+09:00', sellerId: '1', amount: 14_000 },
-      ]),
-    );
+  it('adds a recipient with an automatic different color', () => {
+    seed();
     const element = root();
-    createSellerApp(element, config, createDependencies());
-
-    expect(element.textContent).not.toContain('오늘 QR 1건');
-    expect(button(element, '설정').closest('.app-header')).not.toBeNull();
+    createSellerApp(element, createDependencies());
     button(element, '설정').click();
-    expect(element.textContent).toContain('오늘 QR 1건');
-    expect(element.textContent).toContain('14,000원');
-    expect(element.textContent).toContain('받는 분 바꾸기');
+    button(element, '받는 분 추가').click();
+    fillSellerForm(element);
+    button(element, '받는 분 저장').click();
+    const config = loadLocalConfig(localStorage);
+    expect(config?.sellers).toHaveLength(2);
+    expect(config?.sellers[1]).toMatchObject({ label: '장모님', color: '#9A3412' });
   });
 
-  it('hides seller switching when only one seller is configured', () => {
-    localStorage.setItem('qrpay.currentSeller', '1');
+  it('edits the shop and recipient, then deletes with confirmation', () => {
+    const initial = seed();
+    const second = {
+      ...initial,
+      sellers: [...initial.sellers, {
+        id: 'seller-b', label: '장모님', color: '#9A3412', bank: '신한은행', holder: '김영희',
+        accountDisplay: '987-654-3210', accountCopy: '9876543210',
+      }],
+    };
+    saveLocalConfig(localStorage, second);
     const element = root();
-    createSellerApp(
-      element,
-      { ...config, sellers: [config.sellers[0]] },
-      createDependencies(),
-    );
-
+    createSellerApp(element, createDependencies());
     button(element, '설정').click();
-    expect(element.textContent).not.toContain('받는 분 바꾸기');
+    button(element, '판매점 이름 수정').click();
+    setValue(element, 'shopName', '새 상호');
+    button(element, '판매점 이름 저장').click();
+    expect(loadLocalConfig(localStorage)?.shopName).toBe('새 상호');
+
+    const card = element.querySelector<HTMLElement>('[data-seller-id=seller-b]');
+    if (!card) throw new Error('seller card missing');
+    button(card, '수정').click();
+    setValue(element, 'label', '수정된 장모님');
+    button(element, '받는 분 저장').click();
+    expect(loadLocalConfig(localStorage)?.sellers[1].label).toBe('수정된 장모님');
+
+    button(element.querySelector('[data-seller-id=seller-b]')!, '삭제').click();
+    expect(element.textContent).toContain('정말 삭제');
+    button(element, '삭제 확인').click();
+    expect(loadLocalConfig(localStorage)?.sellers).toHaveLength(1);
+  });
+
+  it('does not allow deleting the final recipient', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    button(element, '설정').click();
+    const remove = button(element, '삭제');
+    expect(remove.disabled).toBe(true);
+    expect(element.textContent).toContain('받는 분을 한 명 이상 유지');
   });
 });

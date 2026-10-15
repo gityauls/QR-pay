@@ -21,8 +21,8 @@ const MAX_SALES = 500;
 
 export function loadCurrentSeller(storage: StorageLike): SellerId | null {
   try {
-    const value = storage.getItem(CURRENT_SELLER_KEY);
-    return value === '1' || value === '2' ? value : null;
+    const value = storage.getItem(CURRENT_SELLER_KEY)?.trim();
+    return value || null;
   } catch {
     return null;
   }
@@ -44,7 +44,8 @@ function isSaleRecord(value: unknown): value is SaleRecord {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<SaleRecord>;
   return (
-    (candidate.sellerId === '1' || candidate.sellerId === '2') &&
+    typeof candidate.sellerId === 'string' &&
+    candidate.sellerId.trim().length > 0 &&
     typeof candidate.occurredAt === 'string' &&
     Number.isFinite(Date.parse(candidate.occurredAt)) &&
     parseAmount(candidate.amount ?? '') !== null

@@ -6,6 +6,11 @@ export type BankOption = {
   kind: 'bank' | 'toss';
 };
 
+export const SETUP_BANKS = [
+  'NH농협은행', '지역농·축협', 'KB국민은행', '신한은행', '우리은행', '하나은행',
+  'IBK기업은행', '카카오뱅크', '토스뱅크', '케이뱅크', '새마을금고', '우체국', '수협',
+] as const;
+
 // NH농협은행 and local 농·축협 (e.g. 서산농협) are separate institutions on one shared network.
 export function nonghyupKind(bankName: string): 'bank' | 'local' | null {
   const compact = bankName.replace(/\s+/g, '');
