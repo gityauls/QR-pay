@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Seller } from '../src/config';
+import { OTHER_BANKS, PRIMARY_BANKS } from '../src/lib/banks';
 import { buildPayUrl } from '../src/lib/pay-url';
 import { createPayApp } from '../src/pay/main';
 
@@ -98,5 +99,13 @@ describe('customer payment view', () => {
     });
     node.querySelector<HTMLButtonElement>('[data-bank-id=toss]')?.click();
     await vi.waitFor(() => expect(node.textContent).toContain('앱을 열지 못했습니다'));
+  });
+
+  it('shows every bank at once without a more button', () => {
+    const node = root();
+    createPayApp(node, { hash: paymentHash(), copy: vi.fn(), open: vi.fn() });
+    expect(node.querySelectorAll('[data-bank-id]')).toHaveLength(PRIMARY_BANKS.length + OTHER_BANKS.length);
+    expect(node.querySelector('[data-bank-id=suhyup], [data-bank-id=post]')).not.toBeNull();
+    expect(node.textContent).not.toContain('다른 은행 보기');
   });
 });

@@ -116,26 +116,15 @@ export function createPayApp(root: HTMLElement, dependencies: PayDependencies): 
     element('p', 'bank-help', '마지막 송금 전 받는 분과 금액을 확인하세요.'),
   );
   const bankGrid = element('div', 'bank-grid');
-  const appendBanks = (banks: readonly BankOption[]) => {
-    for (const bank of banks) {
-      const button = element('button', `bank-button bank-button--${bank.id}`, bank.label);
-      button.type = 'button';
-      button.dataset.bankId = bank.id;
-      button.setAttribute('aria-label', `${bank.label} 앱 열기`);
-      button.addEventListener('click', () => void openBank(bank));
-      bankGrid.append(button);
-    }
-  };
-  appendBanks(PRIMARY_BANKS);
-  const moreButton = element('button', 'button button--secondary more-banks', '다른 은행 보기');
-  moreButton.type = 'button';
-  moreButton.setAttribute('aria-expanded', 'false');
-  moreButton.addEventListener('click', () => {
-    appendBanks(OTHER_BANKS);
-    moreButton.setAttribute('aria-expanded', 'true');
-    moreButton.remove();
-  });
-  bankSection.append(bankGrid, moreButton, copyStatus);
+  for (const bank of [...PRIMARY_BANKS, ...OTHER_BANKS]) {
+    const button = element('button', `bank-button bank-button--${bank.id}`, bank.label);
+    button.type = 'button';
+    button.dataset.bankId = bank.id;
+    button.setAttribute('aria-label', `${bank.label} 앱 열기`);
+    button.addEventListener('click', () => void openBank(bank));
+    bankGrid.append(button);
+  }
+  bankSection.append(bankGrid, copyStatus);
 
   const steps = element('aside', 'manual-steps');
   steps.append(

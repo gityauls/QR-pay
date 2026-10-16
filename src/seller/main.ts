@@ -1,6 +1,11 @@
 import QRCode from 'qrcode';
 import { getSeller, type AppConfig, type Seller, type SellerId } from '../config';
 import { SETUP_BANKS } from '../lib/banks';
+import { copyText } from '../lib/clipboard';
+import {
+  chromeIntentUrl, createInstallController, detectBrowser, detectInAppBrowser, isStandaloneDisplay, kakaoExternalUrl,
+  type BrowserKind, type InAppBrowser, type InstallController,
+} from '../lib/install';
 import { addAmount, applyKey, type KeypadKey } from '../lib/keypad';
 import {
   addSeller, createLocalConfig, deleteSeller, loadLocalConfig, saveLocalConfig,
@@ -8,6 +13,7 @@ import {
 } from '../lib/local-config';
 import { formatWon, formatWonWords, parseAmount } from '../lib/money';
 import { buildPayUrl } from '../lib/pay-url';
+import { detectPlatform, type Platform } from '../lib/platform';
 import { getSales, getTodaySummary, loadCurrentSeller, recordSale, saveCurrentSeller, type StorageLike } from '../lib/storage';
 import { registerPwa } from '../pwa';
 import '../styles.css';
@@ -19,13 +25,25 @@ type TimerDependencies = {
   setInterval: (callback: () => void, delay: number) => TimerHandle;
   clearInterval: (handle: TimerHandle) => void;
 };
+type ShareResult = 'shared' | 'cancelled' | 'unsupported';
 type SellerDependencies = {
   storage: StorageLike;
   baseUrl: string;
   makeQr: (url: string) => Promise<string>;
   now: () => Date;
   timers?: TimerDependencies;
+  // Defaults describe an app already opened from the home screen.
+  standalone?: boolean;
+  platform?: Platform;
+  browser?: BrowserKind;
+  inApp?: InAppBrowser;
+  install?: InstallController;
+  open?: (url: string) => void;
+  share?: (data: ShareData) => Promise<ShareResult>;
+  copy?: (text: string) => Promise<boolean>;
 };
+
+const SHARE_TEXT = '행사장에서 계좌이체를 QR로 받는 앱이에요. 링크를 눌러 휴대폰에 설치하세요.';
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -45,6 +63,22 @@ function defaultMakeQr(url: string): Promise<string> {
     errorCorrectionLevel: 'M', margin: 4, width: 720,
     color: { dark: '#000000', light: '#ffffff' },
   });
+}
+
+async function defaultShare(data: ShareData): Promise<ShareResult> {
+  if (typeof navigator.share !== 'function') return 'unsupported';
+  try {
+    await navigator.share(data);
+    return 'shared';
+  } catch (error) {
+    return error instanceof DOMException && error.name === 'AbortError' ? 'cancelled' : 'unsupported';
+  }
+}
+
+function steps(lines: readonly string[]): HTMLOListElement {
+  const list = element('ol', 'install-steps');
+  for (const line of lines) list.append(element('li', undefined, line));
+  return list;
 }
 
 function defaultTimers(): TimerDependencies {
@@ -103,6 +137,11 @@ function sellerFields(existing?: Seller): { container: HTMLElement; read: () => 
 
 export function createSellerApp(root: HTMLElement, dependencies: SellerDependencies): void {
   const timers = dependencies.timers ?? defaultTimers();
+  const standalone = dependencies.standalone ?? true;
+  const isIos = dependencies.platform === 'ios';
+  const open = dependencies.open ?? ((url: string) => { window.location.href = url; });
+  const appUrl = new URL('./', dependencies.baseUrl).toString();
+  const guideUrl = new URL('./guide/', dependencies.baseUrl).toString();
   let config: AppConfig | null = loadLocalConfig(dependencies.storage);
   let currentSellerId: SellerId | null = loadCurrentSeller(dependencies.storage);
   let digits = '';
@@ -134,13 +173,28 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
   function sellerHeader(current: Seller, headerAction?: HTMLElement): HTMLElement {
     const header = element('header', 'app-header');
     header.style.setProperty('--seller-color', current.color);
-    header.append(
+    const who = element('div', 'app-header__who');
+    who.append(
       element('span', 'app-header__caption', '현재 받는 분'),
       element('strong', 'app-header__name', current.label),
-      element('span', 'app-header__account', `${current.bank}  ${current.accountDisplay}`),
     );
+    const account = element('div', 'app-header__account');
+    account.append(
+      element('span', 'app-header__bank', current.bank),
+      element('span', 'app-header__number', current.accountDisplay),
+    );
+    header.append(who, account);
     if (headerAction) header.append(headerAction);
     return header;
+  }
+  function guideLink(): HTMLAnchorElement {
+    const link = element('a', 'button button--text guide-link', '그림으로 보는 사용법');
+    link.href = guideUrl;
+    return link;
+  }
+  function continueWithoutInstall() {
+    if (config) renderAmount();
+    else renderSetup();
   }
 
   function renderSetup(): void {
@@ -162,24 +216,104 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
       if (!persist(result.value, error)) return;
       currentSellerId = result.value.sellers[0].id;
       saveCurrentSeller(dependencies.storage, currentSellerId);
-      renderInstallHelp();
+      renderAmount();
     });
     card.append(shop, fields.container, error, save);
     view.append(card);
     replace(view);
   }
 
-  function renderInstallHelp(): void {
+  function renderInAppEscape(kind: Exclude<InAppBrowser, null>): void {
+    const view = shell('install-screen');
+    const card = element('div', 'panel install-panel');
+    const browserName = isIos ? 'Safari' : '크롬';
+    card.append(element('p', 'app-kicker', 'QR 송금'));
+    if (kind === 'kakao') {
+      card.append(
+        element('h1', 'screen-title', `${browserName}으로 엽니다`),
+        element('p', 'body-text', '카카오톡 안에서는 앱을 설치할 수 없어서 휴대폰 인터넷 앱으로 다시 엽니다.'),
+        element('p', 'body-text muted', '자동으로 열리지 않으면 아래 버튼을 눌러 주세요.'),
+      );
+      const retry = action('인터넷 앱으로 열기', 'button button--primary primary-action');
+      retry.addEventListener('click', () => open(kakaoExternalUrl(appUrl)));
+      card.append(retry);
+      open(kakaoExternalUrl(appUrl));
+    } else if (isIos) {
+      card.append(
+        element('h1', 'screen-title', 'Safari로 열어 주세요'),
+        element('p', 'body-text', '이 앱 안에서는 설치할 수 없어요. 화면 구석의 ⋯ 메뉴에서 “Safari로 열기”를 눌러 주세요.'),
+      );
+    } else {
+      card.append(
+        element('h1', 'screen-title', '크롬으로 열어 주세요'),
+        element('p', 'body-text', '이 앱 안에서는 설치할 수 없어요. 아래 버튼을 누르면 크롬에서 다시 열립니다.'),
+      );
+      const chrome = action('크롬으로 열기', 'button button--primary primary-action');
+      chrome.addEventListener('click', () => open(chromeIntentUrl(appUrl)));
+      card.append(chrome);
+    }
+    view.append(card);
+    replace(view);
+  }
+
+  function renderInstall(): void {
+    const install = dependencies.install;
     const view = shell('install-screen');
     const card = element('div', 'panel install-panel');
     card.append(
-      element('h1', 'screen-title', '홈 화면에 설치'),
-      element('p', 'body-text', '브라우저 메뉴에서 “홈 화면에 추가” 또는 “앱 설치”를 선택하면 다음부터 아이콘으로 바로 열 수 있어요.'),
-      element('p', 'body-text muted', '지금 설치하지 않아도 브라우저에서 계속 사용할 수 있습니다.'),
+      element('p', 'app-kicker', 'QR 송금'),
+      element('h1', 'screen-title', '휴대폰에 설치하기'),
+      element('p', 'body-text', '설치하면 홈 화면의 “QR 송금” 아이콘으로 바로 열 수 있어요.'),
     );
-    const start = action('금액 입력 시작', 'button button--primary primary-action');
-    start.addEventListener('click', renderAmount);
-    card.append(start);
+    if (isIos) {
+      card.append(
+        steps([
+          '화면 아래(또는 위)의 공유 버튼 □↑ 을 누르세요.',
+          '“홈 화면에 추가”를 누르세요.',
+          '오른쪽 위 “추가”를 누르세요.',
+          '홈 화면의 “QR 송금” 아이콘을 눌러 정보를 입력하세요.',
+        ]),
+        element('p', 'body-text muted', '아이폰은 아이콘으로 연 다음에 정보를 입력해야 저장이 유지돼요.'),
+      );
+    } else {
+      const status = element('div', 'install-status');
+      status.setAttribute('role', 'status');
+      const installButton = action('휴대폰에 설치하기', 'button button--primary primary-action install-action');
+      installButton.addEventListener('click', async () => {
+        const outcome = install ? await install.prompt() : 'unavailable';
+        if (outcome === 'accepted') { renderInstalled(); return; }
+        if (outcome === 'dismissed') {
+          status.replaceChildren(element('p', 'body-text muted', '설치를 취소했어요. 다시 누르면 설치할 수 있어요.'));
+          return;
+        }
+        status.replaceChildren(
+          element('p', 'body-text', '브라우저 메뉴에서 설치해 주세요.'),
+          steps(dependencies.browser === 'samsung'
+            ? ['화면 아래 ≡ 메뉴를 누르세요.', '“현재 페이지 추가”를 누르세요.', '“홈 화면”을 누르세요.']
+            : ['오른쪽 위 ⋮ 메뉴를 누르세요.', '“홈 화면에 추가” 또는 “앱 설치”를 누르세요.', '“설치”를 누르세요.']),
+        );
+      });
+      card.append(installButton, status);
+    }
+    const skip = action(config ? '설치하지 않고 계속 쓰기' : '설치하지 않고 바로 쓰기', 'button button--secondary primary-action');
+    skip.addEventListener('click', continueWithoutInstall);
+    card.append(skip, guideLink());
+    view.append(card);
+    replace(view);
+  }
+
+  function renderInstalled(): void {
+    const view = shell('install-screen');
+    const card = element('div', 'panel install-panel');
+    card.append(
+      element('p', 'app-kicker', 'QR 송금'),
+      element('h1', 'screen-title', '설치됐어요'),
+      element('p', 'body-text', '홈 화면에 생긴 “QR 송금” 아이콘을 눌러 시작하세요.'),
+      element('p', 'body-text muted', '아이콘이 바로 안 보이면 홈 화면을 옆으로 넘겨 보세요.'),
+    );
+    const here = action('여기서 바로 시작하기', 'button button--secondary primary-action');
+    here.addEventListener('click', continueWithoutInstall);
+    card.append(here);
     view.append(card);
     replace(view);
   }
@@ -240,13 +374,22 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
       quickAmounts.append(quick);
     }
     const keypad = element('div', 'keypad');
-    const keys: Array<[KeypadKey, string, string]> = [
-      ['1', '1', ''], ['2', '2', ''], ['3', '3', ''], ['4', '4', ''], ['5', '5', ''], ['6', '6', ''],
-      ['7', '7', ''], ['8', '8', ''], ['9', '9', ''], ['clear', '전체 지우기', 'keypad__utility'],
-      ['0', '0', ''], ['backspace', '한 글자 지우기', 'keypad__utility'],
+    const keys: Array<[KeypadKey, readonly string[]]> = [
+      ['1', ['1']], ['2', ['2']], ['3', ['3']], ['4', ['4']], ['5', ['5']], ['6', ['6']],
+      ['7', ['7']], ['8', ['8']], ['9', ['9']], ['clear', ['전체', '지우기']],
+      ['0', ['0']], ['backspace', ['한 글자', '지우기']],
     ];
-    for (const [key, label, extra] of keys) {
-      const keyButton = action(label, `keypad__key${extra ? ` ${extra}` : ''}`);
+    for (const [key, lines] of keys) {
+      const utility = lines.length > 1;
+      const keyButton = action('', `keypad__key${utility ? ' keypad__utility' : ''}`);
+      const label = element('span', 'keypad__label');
+      // Separate spans stack the utility words on two lines; the space keeps the text readable as one phrase.
+      lines.forEach((line, index) => {
+        if (index > 0) label.append(' ');
+        label.append(utility ? element('span', 'keypad__line', line) : line);
+      });
+      keyButton.append(label);
+      if (utility) keyButton.setAttribute('aria-label', lines.join(' '));
       keyButton.dataset.keypadKey = key;
       keyButton.addEventListener('click', () => { digits = applyKey(digits, key); refresh(); });
       keypad.append(keyButton);
@@ -395,12 +538,32 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
     choose.addEventListener('click', () => { currentSellerId = null; digits = ''; renderChoice(); });
     const back = action('금액 입력으로 돌아가기', 'button button--secondary primary-action');
     back.addEventListener('click', renderAmount);
-    card.append(list, add, summaryBox, choose, back);
+    card.append(list, add, summaryBox, choose, back, element('h2', 'settings-heading', '앱 나누기'));
+    const shareStatus = element('p', 'share-status');
+    shareStatus.setAttribute('role', 'status');
+    const shareApp = action('다른 분께 앱 보내기', 'button button--secondary primary-action');
+    shareApp.addEventListener('click', async () => {
+      const shared = await (dependencies.share ?? defaultShare)({ title: '행사 QR 송금', text: SHARE_TEXT, url: appUrl });
+      if (shared !== 'unsupported') { shareStatus.textContent = ''; return; }
+      const copied = await (dependencies.copy ?? copyText)(appUrl);
+      shareStatus.textContent = copied
+        ? '링크를 복사했어요. 카카오톡 대화방에 붙여넣어 보내세요.'
+        : `이 주소를 보내 주세요: ${appUrl}`;
+    });
+    card.append(shareApp, shareStatus);
+    if (!standalone) {
+      const installApp = action('휴대폰에 설치하기', 'button button--secondary primary-action');
+      installApp.addEventListener('click', renderInstall);
+      card.append(installApp);
+    }
+    card.append(guideLink());
     view.append(card);
     replace(view);
   }
 
-  if (!config) renderSetup();
+  if (dependencies.inApp) renderInAppEscape(dependencies.inApp);
+  else if (!config && !standalone) renderInstall();
+  else if (!config) renderSetup();
   else if (config.sellers.length === 1 && !seller()) {
     currentSellerId = config.sellers[0].id;
     saveCurrentSeller(dependencies.storage, currentSellerId);
@@ -412,10 +575,16 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
 const mount = document.querySelector<HTMLElement>('[data-seller-app]');
 if (mount) {
   void registerPwa(navigator, document.baseURI);
+  const userAgent = navigator.userAgent;
   createSellerApp(mount, {
     storage: localStorage,
     baseUrl: document.baseURI,
     makeQr: defaultMakeQr,
     now: () => new Date(),
+    standalone: isStandaloneDisplay(window as unknown as Parameters<typeof isStandaloneDisplay>[0]),
+    platform: detectPlatform(navigator),
+    browser: detectBrowser(userAgent),
+    inApp: detectInAppBrowser(userAgent),
+    install: createInstallController(window),
   });
 }

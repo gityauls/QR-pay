@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#075985" />
+    <meta name="description" content="행사 QR 송금 앱을 카카오톡 링크로 설치하고 쓰는 방법" />
+    <meta property="og:title" content="행사 QR 송금 사용법" />
+    <meta property="og:description" content="카카오톡 링크로 설치하고 금액을 눌러 QR을 만드는 방법을 그림으로 보여 드려요." />
+    <link rel="icon" type="image/png" sizes="192x192" href="../icons/qr-pay-192.png" />
+    <title>QR 송금 사용법</title>
+    <style>
+      :root {
+        --ink: #111827;
+        --muted: #4b5563;
+        --primary: #075985;
+        --soft: #e0f2fe;
+        --line: #d1d5db;
+        --tip: #fef3c7;
+        --tip-ink: #713f12;
+        color: var(--ink);
+        background: #f3f4f6;
+        font-family: system-ui, -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif;
+        word-break: keep-all;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f3f4f6; }
+      main {
+        width: min(100%, 560px);
+        margin: 0 auto;
+        padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+      }
+      h1 { margin: 6px 0 10px; font-size: 2rem; font-weight: 900; line-height: 1.25; letter-spacing: -0.03em; }
+      h2 { margin: 0; font-size: 1.6rem; font-weight: 900; }
+      p { margin: 0; font-size: 1.2rem; font-weight: 650; line-height: 1.55; overflow-wrap: anywhere; }
+      .kicker { color: var(--primary); font-size: 1.1rem; font-weight: 850; }
+      .jump { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0 8px; }
+      .jump a {
+        display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 8px;
+        border-radius: 14px; background: var(--primary); color: #fff; font-size: 1.2rem; font-weight: 850; text-decoration: none; text-align: center;
+      }
+      .guide { margin-top: 28px; padding: 20px 16px 24px; border-radius: 22px; background: #fff; border: 1px solid var(--line); }
+      .guide > header { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid var(--line); }
+      .guide > header img { width: 52px; height: 52px; border-radius: 12px; }
+      .guide > header p { color: var(--muted); font-size: 1rem; }
+      ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+      .step { counter-increment: step; display: grid; gap: 12px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+      .step:last-child { border-bottom: 0; padding-bottom: 0; }
+      .step h3 { display: flex; align-items: flex-start; gap: 12px; margin: 0; font-size: 1.45rem; font-weight: 900; line-height: 1.35; }
+      .step h3::before {
+        content: counter(step); flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+        background: var(--primary); color: #fff; font-size: 1.3rem;
+      }
+      .shot { display: block; width: min(100%, 300px); margin: 4px auto 0; border: 8px solid #1f2937; border-radius: 26px; background: #1f2937; }
+      .note { color: var(--muted); font-size: 1.05rem; }
+      .tip { display: grid; gap: 10px; margin-top: 4px; padding: 14px; border-radius: 14px; background: var(--tip); color: var(--tip-ink); }
+      .tip b { font-size: 1.15rem; }
+      .tip p { font-size: 1.1rem; }
+      .back {
+        display: flex; align-items: center; justify-content: center; min-height: 64px; margin-top: 28px; border: 2px solid #9ca3af;
+        border-radius: 14px; background: #fff; color: var(--ink); font-size: 1.25rem; font-weight: 850; text-decoration: none;
+      }
+      .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+      .cards img { display: block; width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+      .footnote { margin-top: 14px; color: var(--muted); font-size: 0.95rem; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="kicker">행사 QR 송금</p>
+      <h1>설치하고 쓰는 방법</h1>
+      <p>카카오톡으로 받은 링크를 눌러 설치합니다. 휴대폰 종류를 골라 보세요.</p>
+      <nav class="jump" aria-label="휴대폰 종류">
+        <a href="#android">갤럭시<br />(안드로이드)</a>
+        <a href="#iphone">아이폰</a>
+      </nav>
+
+      <section class="guide" id="android">
+        <header>
+          <img src="../icons/qr-pay-192.png" alt="" />
+          <div><h2>갤럭시 · 안드로이드</h2><p>삼성, LG 등 아이폰이 아닌 휴대폰</p></div>
+        </header>
+        <ol class="steps">
+          <li class="step">
+            <h3>카카오톡에서 링크를 누르세요</h3>
+            <p>“행사 QR 송금” 링크를 누릅니다.</p>
+            <img class="shot" src="img/chat.jpg" alt="카카오톡 대화방에 온 행사 QR 송금 링크" />
+          </li>
+          <li class="step">
+            <h3>인터넷 앱이 저절로 열려요</h3>
+            <p>카카오톡 안에서는 설치가 안 돼서 크롬이나 삼성 인터넷으로 다시 열립니다. 안 열리면 <b>인터넷 앱으로 열기</b>를 누르세요.</p>
+            <img class="shot" src="img/kakao-android.jpg" alt="크롬으로 엽니다 화면" />
+          </li>
+          <li class="step">
+            <h3>“휴대폰에 설치하기”를 누르세요</h3>
+            <img class="shot" src="img/install-android.jpg" alt="휴대폰에 설치하기 버튼이 있는 화면" />
+          </li>
+          <li class="step">
+            <h3>창이 뜨면 “설치”를 누르세요</h3>
+            <p class="note">휴대폰마다 창 모양은 조금 다를 수 있어요.</p>
+            <img class="shot" src="img/install-dialog.jpg" alt="앱을 설치할까요 창의 설치 버튼" />
+            <div class="tip">
+              <b>설치 창이 안 뜨면</b>
+              <p>화면에 나오는 순서대로 브라우저 메뉴를 눌러 설치하세요.</p>
+              <img class="shot" src="img/install-samsung-menu.jpg" alt="브라우저 메뉴로 설치하는 순서 안내" />
+            </div>
+          </li>
+          <li class="step">
+            <h3>홈 화면의 “QR 송금” 아이콘을 누르세요</h3>
+            <p class="note">아이콘이 안 보이면 홈 화면을 옆으로 넘겨 보세요.</p>
+            <img class="shot" src="img/home.jpg" alt="홈 화면의 QR 송금 아이콘" />
+          </li>
+          <li class="step">
+            <h3>처음 한 번만 정보를 넣으세요</h3>
+            <p>판매점 이름, 받는 분 이름, 은행, 예금주, 계좌번호를 넣고 <b>저장하고 시작하기</b>를 누릅니다.</p>
+            <img class="shot" src="img/setup.jpg" alt="처음 설정 화면 예시" />
+          </li>
+          <li class="step">
+            <h3>금액을 누르고 “QR 만들기”</h3>
+            <p>+1만원 같은 버튼이나 숫자로 금액을 넣으세요.</p>
+            <img class="shot" src="img/amount.jpg" alt="15,000원을 입력한 금액 화면" />
+          </li>
+          <li class="step">
+            <h3>손님에게 QR을 보여 주세요</h3>
+            <p>손님이 카메라로 찍으면 은행 앱을 고르는 화면이 열려요. 15초 뒤 금액 화면으로 돌아갑니다.</p>
+            <img class="shot" src="img/qr.jpg" alt="QR 화면" />
+          </li>
+        </ol>
+      </section>
+
+      <section class="guide" id="iphone">
+        <header>
+          <img src="../icons/qr-pay-192.png" alt="" />
+          <div><h2>아이폰</h2><p>Safari로 홈 화면에 추가합니다</p></div>
+        </header>
+        <ol class="steps">
+          <li class="step">
+            <h3>카카오톡에서 링크를 누르세요</h3>
+            <img class="shot" src="img/chat.jpg" alt="카카오톡 대화방에 온 행사 QR 송금 링크" />
+          </li>
+          <li class="step">
+            <h3>Safari가 저절로 열려요</h3>
+            <p>안 열리면 <b>인터넷 앱으로 열기</b>를 누르세요.</p>
+            <img class="shot" src="img/kakao-ios.jpg" alt="Safari로 엽니다 화면" />
+          </li>
+          <li class="step">
+            <h3>아래쪽 공유 버튼을 누르세요</h3>
+            <p>네모에 위쪽 화살표가 있는 버튼입니다.</p>
+            <img class="shot" src="img/ios-bar.jpg" alt="Safari 아래쪽의 공유 버튼" />
+          </li>
+          <li class="step">
+            <h3>“홈 화면에 추가”를 누르세요</h3>
+            <p class="note">안 보이면 메뉴를 위로 밀어 보세요.</p>
+            <img class="shot" src="img/ios-sheet.jpg" alt="공유 메뉴의 홈 화면에 추가" />
+          </li>
+          <li class="step">
+            <h3>오른쪽 위 “추가”를 누르세요</h3>
+            <img class="shot" src="img/ios-add.jpg" alt="홈 화면에 추가 창의 추가 버튼" />
+          </li>
+          <li class="step">
+            <h3>홈 화면의 “QR 송금” 아이콘을 누르세요</h3>
+            <img class="shot" src="img/home.jpg" alt="홈 화면의 QR 송금 아이콘" />
+          </li>
+          <li class="step">
+            <h3>아이콘으로 연 화면에서 정보를 넣으세요</h3>
+            <p>아이폰은 <b>꼭 아이콘으로 연 다음</b> 정보를 넣어야 저장이 유지돼요.</p>
+            <img class="shot" src="img/setup.jpg" alt="처음 설정 화면 예시" />
+          </li>
+          <li class="step">
+            <h3>금액을 누르고 “QR 만들기”</h3>
+            <img class="shot" src="img/amount.jpg" alt="15,000원을 입력한 금액 화면" />
+          </li>
+        </ol>
+      </section>
+
+      <section class="guide" id="share">
+        <header>
+          <img src="../icons/qr-pay-192.png" alt="" />
+          <div><h2>다른 분께 보내기</h2><p>이 앱을 다른 사장님께 나눠 드릴 때</p></div>
+        </header>
+        <ol class="steps">
+          <li class="step">
+            <h3>설정 → “다른 분께 앱 보내기”</h3>
+            <p>공유 창에서 카카오톡을 고르고 받을 분을 선택하세요. 받는 분은 자기 정보를 따로 넣으니 내 계좌는 보내지지 않아요.</p>
+            <img class="shot" src="img/settings-share.jpg" alt="설정 화면의 다른 분께 앱 보내기 버튼" />
+          </li>
+        </ol>
+      </section>
+
+      <section class="guide" id="cards">
+        <header>
+          <img src="../icons/qr-pay-192.png" alt="" />
+          <div><h2>카카오톡으로 보낼 그림</h2><p>그림을 길게 눌러 저장한 뒤 보내 주세요</p></div>
+        </header>
+        <div class="cards">
+          <a href="cards/android-1.jpg"><img src="cards/android-1.jpg" alt="갤럭시 설치 방법 1/2" /></a>
+          <a href="cards/android-2.jpg"><img src="cards/android-2.jpg" alt="갤럭시 설치 방법 2/2" /></a>
+          <a href="cards/iphone-1.jpg"><img src="cards/iphone-1.jpg" alt="아이폰 설치 방법 1/2" /></a>
+          <a href="cards/iphone-2.jpg"><img src="cards/iphone-2.jpg" alt="아이폰 설치 방법 2/2" /></a>
+        </div>
+      </section>
+
+      <a class="back" href="../">QR 송금 앱으로 가기</a>
+      <p class="footnote">그림 속 이름과 계좌번호는 예시입니다.</p>
+    </main>
+  </body>
+</html>

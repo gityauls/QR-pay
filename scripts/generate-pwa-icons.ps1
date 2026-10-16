@@ -32,7 +32,9 @@ function New-QrPayIcon([int]$Size, [string]$Path) {
   $format.Alignment = [System.Drawing.StringAlignment]::Center
   $format.LineAlignment = [System.Drawing.StringAlignment]::Center
   $textArea = [System.Drawing.RectangleF]::new([single]($Size * 0.36), [single]($Size * 0.42), [single]($Size * 0.48), [single]($Size * 0.36))
-  $graphics.DrawString('송금', $font, $white, $textArea, $format)
+  # Code points keep the label intact when Windows PowerShell reads this file as ANSI.
+  $label = [string]::new([char[]]@(0xC1A1, 0xAE08))
+  $graphics.DrawString($label, $font, $white, $textArea, $format)
 
   $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
   $format.Dispose()

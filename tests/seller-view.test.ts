@@ -77,12 +77,13 @@ describe('seller app local setup', () => {
     const css = readFileSync(resolve(import.meta.dirname, '..', 'src', 'styles.css'), 'utf8');
     expect(css).toMatch(/\.app-shell--compact\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
     expect(css).toMatch(/\.app-shell--compact \.amount-panel\s*\{[^}]*display:\s*flex[^}]*flex:\s*1/s);
-    expect(css).toMatch(/\.app-shell--compact \.keypad\s*\{[^}]*flex:\s*1[^}]*gap:\s*8px/s);
+    expect(css).toMatch(/\.app-shell--compact \.keypad\s*\{[^}]*flex:\s*1[^}]*gap:\s*var\(--key-gap\)/s);
+    expect(css).toMatch(/--key-gap:\s*8px/);
     expect(css).toContain('grid-template-rows: repeat(4, minmax(48px, 1fr))');
     expect(css).not.toContain('min-height: 42px');
   });
 
-  it('starts with setup, saves the first recipient, then shows install help', () => {
+  it('starts with setup when opened from the home screen, then goes straight to amount entry', () => {
     const element = root();
     createSellerApp(element, createDependencies());
     expect(element.textContent).toContain('처음 설정');
@@ -92,8 +93,6 @@ describe('seller app local setup', () => {
     });
     button(element, '저장하고 시작하기').click();
     expect(loadLocalConfig(localStorage)?.shopName).toBe('우리 가게');
-    expect(element.textContent).toContain('홈 화면에 설치');
-    button(element, '금액 입력 시작').click();
     expect(element.textContent).toContain('받을 금액');
     expect(element.textContent).toContain('사장님');
   });
@@ -188,5 +187,133 @@ describe('seller app local setup', () => {
     const remove = button(element, '삭제');
     expect(remove.disabled).toBe(true);
     expect(element.textContent).toContain('받는 분을 한 명 이상 유지');
+  });
+  it('puts the bank and account beside the recipient name', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    const header = element.querySelector('.app-header');
+    expect(header?.querySelector('.app-header__who')?.textContent).toContain('장인어른');
+    expect(header?.querySelector('.app-header__bank')?.textContent).toBe('NH농협은행');
+    expect(header?.querySelector('.app-header__number')?.textContent).toBe('123-456-7890');
+  });
+
+  it('shows keypad utilities on two lines and digits in a sizeable label', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    const clear = element.querySelector<HTMLElement>('[data-keypad-key=clear]');
+    expect(clear?.querySelectorAll('.keypad__line')).toHaveLength(2);
+    expect(clear?.getAttribute('aria-label')).toBe('전체 지우기');
+    expect(element.querySelector('[data-keypad-key="1"] .keypad__label')?.textContent).toBe('1');
+  });
+});
+
+function fakeInstall(canPrompt: boolean, outcome: 'accepted' | 'dismissed' = 'accepted') {
+  let available = canPrompt;
+  return {
+    canPrompt: () => available,
+    installed: () => false,
+    prompt: vi.fn(async () => {
+      if (!available) return 'unavailable' as const;
+      available = false;
+      return outcome;
+    }),
+    onChange: vi.fn(() => () => undefined),
+  };
+}
+
+describe('seller app installation', () => {
+  it('offers installation first in a browser tab and lets the seller skip it', () => {
+    const element = root();
+    createSellerApp(element, createDependencies({ standalone: false, install: fakeInstall(false) }));
+    expect(element.textContent).toContain('휴대폰에 설치하기');
+    button(element, '설치하지 않고').click();
+    expect(element.textContent).toContain('처음 설정');
+  });
+
+  it('shows the browser install prompt and then explains how to open the app', async () => {
+    const element = root();
+    const install = fakeInstall(true, 'accepted');
+    createSellerApp(element, createDependencies({ standalone: false, install }));
+    button(element, '휴대폰에 설치하기').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('설치됐어요'));
+    expect(install.prompt).toHaveBeenCalledOnce();
+    expect(element.textContent).toContain('QR 송금');
+    button(element, '여기서 바로 시작하기').click();
+    expect(element.textContent).toContain('처음 설정');
+  });
+
+  it('keeps the install screen when the seller cancels the prompt', async () => {
+    const element = root();
+    createSellerApp(element, createDependencies({ standalone: false, install: fakeInstall(true, 'dismissed') }));
+    button(element, '휴대폰에 설치하기').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('설치를 취소했어요'));
+  });
+
+  it('shows menu steps when the browser cannot prompt', async () => {
+    const element = root();
+    createSellerApp(element, createDependencies({ standalone: false, install: fakeInstall(false), browser: 'samsung' }));
+    button(element, '휴대폰에 설치하기').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('현재 페이지 추가'));
+  });
+
+  it('shows iPhone home-screen steps instead of an install button', () => {
+    const element = root();
+    createSellerApp(element, createDependencies({ standalone: false, platform: 'ios', install: fakeInstall(false) }));
+    expect(element.textContent).toContain('홈 화면에 추가');
+    expect(element.textContent).toContain('공유');
+    expect([...element.querySelectorAll('button')].some((item) => item.textContent === '휴대폰에 설치하기')).toBe(false);
+  });
+
+  it('leaves the KakaoTalk in-app browser for the phone browser', () => {
+    const element = root();
+    const open = vi.fn();
+    createSellerApp(element, createDependencies({ standalone: false, inApp: 'kakao', open }));
+    expect(open).toHaveBeenCalledWith('kakaotalk://web/openExternal?url=https%3A%2F%2Fexample.com%2FQR-pay%2F');
+    expect(element.textContent).toContain('카카오톡');
+    button(element, '인터넷 앱으로 열기').click();
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens Chrome from other Android in-app browsers on request', () => {
+    const element = root();
+    const open = vi.fn();
+    createSellerApp(element, createDependencies({ standalone: false, inApp: 'webview', open }));
+    expect(open).not.toHaveBeenCalled();
+    button(element, '크롬으로 열기').click();
+    expect(open).toHaveBeenCalledWith('intent://example.com/QR-pay/#Intent;scheme=https;package=com.android.chrome;end');
+  });
+
+  it('shares the app link from settings', async () => {
+    seed();
+    const element = root();
+    const share = vi.fn(async (_data: ShareData) => 'shared' as const);
+    createSellerApp(element, createDependencies({ share }));
+    button(element, '설정').click();
+    button(element, '다른 분께 앱 보내기').click();
+    await vi.waitFor(() => expect(share).toHaveBeenCalledOnce());
+    expect(share.mock.calls[0][0]).toMatchObject({ url: 'https://example.com/QR-pay/' });
+  });
+
+  it('copies the app link when the phone cannot share', async () => {
+    seed();
+    const element = root();
+    const copy = vi.fn(async () => true);
+    createSellerApp(element, createDependencies({ share: vi.fn(async () => 'unsupported' as const), copy }));
+    button(element, '설정').click();
+    button(element, '다른 분께 앱 보내기').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('링크를 복사했어요'));
+    expect(copy).toHaveBeenCalledWith('https://example.com/QR-pay/');
+  });
+
+  it('offers installation from settings when running in a browser tab', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies({ standalone: false, install: fakeInstall(false) }));
+    expect(element.textContent).toContain('받을 금액');
+    button(element, '설정').click();
+    button(element, '휴대폰에 설치하기').click();
+    expect(element.querySelector('.install-panel')).not.toBeNull();
   });
 });
