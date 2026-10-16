@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   getSales,
   getTodaySummary,
+  loadAmountStep,
   loadCurrentSeller,
   recordSale,
+  saveAmountStep,
   saveCurrentSeller,
   type StorageLike,
 } from '../src/lib/storage';
@@ -31,6 +33,29 @@ describe('current seller storage', () => {
     const storage = new MemoryStorage();
     storage.setItem('qrpay.currentSeller', '');
     expect(loadCurrentSeller(storage)).toBeNull();
+  });
+});
+
+describe('amount step storage', () => {
+  it('uses 1,000-won steps until 100-won input is turned on', () => {
+    const storage = new MemoryStorage();
+    expect(loadAmountStep(storage)).toBe(1_000);
+    expect(saveAmountStep(storage, 100)).toBe(true);
+    expect(loadAmountStep(storage)).toBe(100);
+    expect(saveAmountStep(storage, 1_000)).toBe(true);
+    expect(loadAmountStep(storage)).toBe(1_000);
+  });
+
+  it('falls back to 1,000-won steps for damaged values', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('qrpay.amountStep', '7');
+    expect(loadAmountStep(storage)).toBe(1_000);
+  });
+
+  it('keeps 100-won sales in the daily record', () => {
+    const storage = new MemoryStorage();
+    recordSale(storage, { occurredAt: '2026-10-16T03:00:00.000Z', sellerId: 'seller-a', amount: 15_500 });
+    expect(getSales(storage).map((sale) => sale.amount)).toEqual([15_500]);
   });
 });
 

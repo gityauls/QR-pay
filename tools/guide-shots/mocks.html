@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; padding: 20px; background: #888; font-family: "Malgun Gothic", system-ui, sans-serif; display: flex; flex-wrap: wrap; gap: 20px; }
+  .mock { position: relative; width: 384px; height: 800px; overflow: hidden; background: #fff; color: #111827; }
+  .status { height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 13px; font-weight: 700; }
+  .status .dots { display: flex; gap: 5px; }
+  .status .dots i { display: block; width: 14px; height: 9px; border-radius: 2px; background: currentColor; opacity: 0.7; }
+  .ring { position: absolute; border: 5px solid #f59e0b; border-radius: 999px; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.28); }
+  .finger { position: absolute; width: 46px; height: 46px; border-radius: 50%; background: rgba(245, 158, 11, 0.55); border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+
+  /* Chat room */
+  #chat { background: #b2c7d9; }
+  #chat .bar { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; background: #a9bdce; font-size: 19px; font-weight: 800; }
+  #chat .bar .back { font-size: 26px; }
+  #chat .day { margin: 16px auto; width: fit-content; padding: 4px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.15); color: #fff; font-size: 13px; }
+  #chat .row { display: flex; gap: 8px; padding: 0 12px; margin-top: 10px; }
+  #chat .avatar { flex: none; width: 42px; height: 42px; border-radius: 16px; background: #8fb7d9; display: grid; place-items: center; color: #fff; font-weight: 800; }
+  #chat .name { font-size: 13px; margin-bottom: 4px; }
+  #chat .bubble { max-width: 250px; padding: 10px 12px; border-radius: 4px 14px 14px 14px; background: #fff; font-size: 17px; line-height: 1.45; }
+  #chat .card { width: 262px; margin-top: 6px; border-radius: 12px; overflow: hidden; background: #fff; }
+  #chat .card img { display: block; width: 100%; }
+  #chat .card .txt { padding: 10px 12px 12px; }
+  #chat .card b { display: block; font-size: 17px; }
+  #chat .card span { display: block; margin-top: 3px; color: #555; font-size: 13px; line-height: 1.4; }
+  #chat .card small { display: block; margin-top: 6px; color: #888; font-size: 12px; }
+  #chat .input { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; background: #fff; display: flex; align-items: center; padding: 0 14px; color: #aaa; font-size: 15px; }
+
+  /* Android install dialog */
+  #install-dialog .behind { position: absolute; inset: 0; }
+  #install-dialog .behind img { width: 100%; display: block; }
+  #install-dialog .dim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); }
+  #install-dialog .dialog { position: absolute; left: 24px; right: 24px; top: 250px; padding: 24px 22px 18px; border-radius: 28px; background: #f3f1f8; }
+  #install-dialog h3 { margin: 0 0 18px; font-size: 24px; font-weight: 700; }
+  #install-dialog .app { display: flex; gap: 14px; align-items: center; }
+  #install-dialog .app img { width: 52px; height: 52px; border-radius: 12px; }
+  #install-dialog .app b { display: block; font-size: 19px; }
+  #install-dialog .app span { color: #555; font-size: 14px; }
+  #install-dialog .btns { display: flex; justify-content: flex-end; gap: 26px; margin-top: 26px; font-size: 18px; font-weight: 700; color: #1a56c4; }
+  #install-dialog .btns span { padding: 8px 6px; }
+
+  /* Home screen */
+  #home { background: linear-gradient(170deg, #2a4f75, #7a9cbf 55%, #c9b79b); color: #fff; }
+  #home .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px 10px; padding: 70px 18px 0; }
+  #home .app { display: grid; justify-items: center; gap: 6px; font-size: 13px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+  #home .app i { display: block; width: 60px; height: 60px; border-radius: 18px; background: rgba(255, 255, 255, 0.35); }
+  #home .app img { width: 60px; height: 60px; border-radius: 18px; }
+  #home .app.target { font-weight: 800; font-size: 14px; }
+  #home .dock { position: absolute; left: 18px; right: 18px; bottom: 34px; display: flex; justify-content: space-around; }
+  #home .dock i { width: 58px; height: 58px; border-radius: 18px; background: rgba(255, 255, 255, 0.3); }
+
+  /* iPhone Safari */
+  .safari .page { position: absolute; left: 0; right: 0; top: 0; bottom: 96px; overflow: hidden; }
+  .safari .page img { width: 100%; display: block; }
+  .safari .toolbar { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: rgba(246, 246, 248, 0.98); border-top: 1px solid #d1d1d6; }
+  .safari .url { margin: 8px 14px; height: 40px; border-radius: 12px; background: #e3e3e8; display: grid; place-items: center; font-size: 15px; color: #222; }
+  .safari .icons { display: flex; justify-content: space-around; align-items: center; height: 36px; color: #0a7aff; font-size: 24px; }
+  .share-icon { position: relative; display: inline-block; width: 22px; height: 22px; border: 2.5px solid #0a7aff; border-top: 0; border-radius: 0 0 4px 4px; }
+  .share-icon::before { content: ""; position: absolute; left: 50%; top: -12px; width: 2.5px; height: 18px; background: #0a7aff; transform: translateX(-50%); }
+  .share-icon::after { content: ""; position: absolute; left: 50%; top: -13px; width: 9px; height: 9px; border-left: 2.5px solid #0a7aff; border-top: 2.5px solid #0a7aff; transform: translateX(-50%) rotate(45deg); }
+
+  #ios-sheet .dim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); }
+  #ios-sheet .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 470px; padding: 18px 14px; border-radius: 16px 16px 0 0; background: #f2f2f7; }
+  #ios-sheet .head { display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid #d1d1d6; }
+  #ios-sheet .head img { width: 48px; height: 48px; border-radius: 10px; }
+  #ios-sheet .head b { display: block; font-size: 16px; }
+  #ios-sheet .head span { font-size: 13px; color: #666; }
+  #ios-sheet .group { margin-top: 14px; border-radius: 12px; background: #fff; overflow: hidden; }
+  #ios-sheet .item { display: flex; justify-content: space-between; align-items: center; height: 50px; padding: 0 16px; border-bottom: 1px solid #e5e5ea; font-size: 17px; }
+  #ios-sheet .item:last-child { border-bottom: 0; }
+  #ios-sheet .item em { font-style: normal; color: #444; font-size: 20px; }
+
+  #ios-add { background: #f2f2f7; }
+  #ios-add .nav { display: flex; justify-content: space-between; align-items: center; height: 56px; padding: 0 16px; font-size: 17px; }
+  #ios-add .nav span { color: #0a7aff; }
+  #ios-add .nav b { font-weight: 700; }
+  #ios-add .nav .add { font-weight: 800; }
+  #ios-add .box { margin: 18px 16px; padding: 14px; border-radius: 12px; background: #fff; display: flex; gap: 14px; align-items: center; }
+  #ios-add .box img { width: 64px; height: 64px; border-radius: 14px; }
+  #ios-add .box b { display: block; font-size: 18px; padding-bottom: 8px; border-bottom: 1px solid #e5e5ea; }
+  #ios-add .box span { display: block; padding-top: 8px; font-size: 14px; color: #666; }
+  #ios-add p { margin: 0 24px; color: #6b6b70; font-size: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <section class="mock" id="chat">
+    <div class="bar"><span class="back">‹</span><span>아들</span></div>
+    <div class="day">2026년 10월 16일</div>
+    <div class="row">
+      <div class="avatar">아들</div>
+      <div>
+        <div class="name">아들</div>
+        <div class="bubble">아버님, 아래 링크 눌러서 설치하세요.</div>
+        <div class="card" id="chat-card">
+          <img src="../../public/icons/qr-pay-share.png" alt="" id="og-img">
+          <div class="txt">
+            <b>행사 QR 송금</b>
+            <span>눌러서 휴대폰에 설치하세요. 행사장에서 계좌이체를 QR로 받는 앱이에요.</span>
+            <small>gityauls.github.io</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ring" data-for="#chat-card" data-pad="6"></div>
+    <div class="finger" data-for="#chat-card"></div>
+    <div class="input">메시지 입력</div>
+  </section>
+
+  <section class="mock" id="install-dialog">
+    <div class="behind"><img src="../../public/guide/img/install-android.jpg" alt=""></div>
+    <div class="dim"></div>
+    <div class="dialog">
+      <h3>앱을 설치할까요?</h3>
+      <div class="app">
+        <img src="../../public/icons/qr-pay-512.png" alt="">
+        <div><b>QR 송금</b><span>gityauls.github.io</span></div>
+      </div>
+      <div class="btns"><span>취소</span><span id="install-btn">설치</span></div>
+    </div>
+    <div class="ring" data-for="#install-btn" data-pad="6"></div>
+  </section>
+
+  <section class="mock" id="home">
+    <div class="status"><span>10:30</span><span class="dots"><i></i><i></i><i></i></span></div>
+    <div class="grid">
+      <div class="app"><i></i>카메라</div>
+      <div class="app"><i></i>갤러리</div>
+      <div class="app"><i></i>시계</div>
+      <div class="app"><i></i>계산기</div>
+      <div class="app"><i></i>날씨</div>
+      <div class="app"><i></i>달력</div>
+      <div class="app"><i></i>메모</div>
+      <div class="app target" id="home-target"><img src="../../public/icons/qr-pay-512.png" alt="">QR 송금</div>
+    </div>
+    <div class="ring" data-for="#home-target" data-pad="6"></div>
+    <div class="finger" data-for="#home-target"></div>
+    <div class="dock"><i></i><i></i><i></i><i></i></div>
+  </section>
+
+  <section class="mock safari" id="ios-bar">
+    <div class="page"><img src="../../public/guide/img/install-ios.jpg" alt=""></div>
+    <div class="toolbar">
+      <div class="url">gityauls.github.io</div>
+      <div class="icons"><span>‹</span><span>›</span><span class="share-icon" id="share-icon"></span><span>▢</span><span>⧉</span></div>
+    </div>
+    <div class="ring" data-for="#share-icon" data-pad="14"></div>
+  </section>
+
+  <section class="mock safari" id="ios-sheet">
+    <div class="page"><img src="../../public/guide/img/install-ios.jpg" alt=""></div>
+    <div class="dim"></div>
+    <div class="sheet">
+      <div class="head"><img src="../../public/icons/qr-pay-512.png" alt=""><div><b>행사 QR 송금</b><span>gityauls.github.io</span></div></div>
+      <div class="group">
+        <div class="item">복사 <em>⧉</em></div>
+        <div class="item">읽기 목록에 추가 <em>◎</em></div>
+        <div class="item">책갈피 추가 <em>▭</em></div>
+      </div>
+      <div class="group">
+        <div class="item">즐겨찾기에 추가 <em>☆</em></div>
+        <div class="item" id="add-home">홈 화면에 추가 <em>⊞</em></div>
+        <div class="item">페이지에서 찾기 <em>⌕</em></div>
+      </div>
+    </div>
+    <div class="ring" data-for="#add-home" data-pad="2"></div>
+  </section>
+
+  <section class="mock" id="ios-add">
+    <div class="nav"><span>취소</span><b>홈 화면에 추가</b><span class="add" id="add-btn">추가</span></div>
+    <div class="box"><img src="../../public/icons/qr-pay-512.png" alt=""><div><b>QR 송금</b><span>gityauls.github.io</span></div></div>
+    <p>홈 화면에 아이콘이 추가되어 이 웹 사이트에 빠르게 접근할 수 있습니다.</p>
+    <div class="ring" data-for="#add-btn" data-pad="8"></div>
+  </section>
+</body>
+</html>

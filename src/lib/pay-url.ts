@@ -1,5 +1,5 @@
 import type { Seller } from '../config';
-import { parseAmount } from './money';
+import { FINEST_STEP, parseAmount } from './money';
 
 export type PaymentRequest =
   | { ok: true; shopName: string; seller: Seller; amount: number }
@@ -59,7 +59,7 @@ export function buildPayUrl(
   seller: Seller,
   amount: number,
 ): string {
-  const validAmount = parseAmount(amount);
+  const validAmount = parseAmount(amount, FINEST_STEP);
   if (validAmount === null) throw new Error('올바른 금액이 아닙니다.');
   if (!isShortText(shopName) || !isSeller(seller)) throw new Error('올바른 받는 분 정보가 아닙니다.');
 
@@ -76,7 +76,7 @@ export function parsePaymentRequest(hash: string): PaymentRequest {
     const payload: unknown = JSON.parse(fromBase64Url(encoded));
     if (!payload || typeof payload !== 'object') throw new Error('invalid payload');
     const candidate = payload as Partial<PaymentPayload>;
-    const amount = parseAmount(candidate.amount ?? '');
+    const amount = parseAmount(candidate.amount ?? '', FINEST_STEP);
     if (candidate.v !== 1 || !isShortText(candidate.shop) || !isSeller(candidate.seller) || amount === null) {
       throw new Error('invalid payload');
     }

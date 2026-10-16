@@ -40,12 +40,15 @@
         display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 8px;
         border-radius: 14px; background: var(--primary); color: #fff; font-size: 1.2rem; font-weight: 850; text-decoration: none; text-align: center;
       }
+      .jump a.jump__wide { grid-column: 1 / -1; background: #fff; color: var(--primary); border: 2px solid var(--primary); }
       .guide { margin-top: 28px; padding: 20px 16px 24px; border-radius: 22px; background: #fff; border: 1px solid var(--line); }
       .guide > header { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid var(--line); }
       .guide > header img { width: 52px; height: 52px; border-radius: 12px; }
       .guide > header p { color: var(--muted); font-size: 1rem; }
       ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
       .step { counter-increment: step; display: grid; gap: 12px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+      ul.features { list-style: none; margin: 0; padding: 0; }
+      ul.features .step h3::before { display: none; }
       .step:last-child { border-bottom: 0; padding-bottom: 0; }
       .step h3 { display: flex; align-items: flex-start; gap: 12px; margin: 0; font-size: 1.45rem; font-weight: 900; line-height: 1.35; }
       .step h3::before {
@@ -74,6 +77,7 @@
       <nav class="jump" aria-label="휴대폰 종류">
         <a href="#android">갤럭시<br />(안드로이드)</a>
         <a href="#iphone">아이폰</a>
+        <a class="jump__wide" href="#features">편리한 기능 (말로 입력 · QR 다시 보기 · 100원 단위)</a>
       </nav>
 
       <section class="guide" id="android">
@@ -88,8 +92,8 @@
             <img class="shot" src="img/chat.jpg" alt="카카오톡 대화방에 온 행사 QR 송금 링크" />
           </li>
           <li class="step">
-            <h3>인터넷 앱이 저절로 열려요</h3>
-            <p>카카오톡 안에서는 설치가 안 돼서 크롬이나 삼성 인터넷으로 다시 열립니다. 안 열리면 <b>인터넷 앱으로 열기</b>를 누르세요.</p>
+            <h3>크롬이 저절로 열려요</h3>
+            <p>카카오톡 안에서는 설치가 안 돼서 크롬으로 다시 열립니다. 안 열리면 <b>크롬으로 열기</b>를 누르세요.</p>
             <img class="shot" src="img/kakao-android.jpg" alt="크롬으로 엽니다 화면" />
           </li>
           <li class="step">
@@ -104,6 +108,10 @@
               <b>설치 창이 안 뜨면</b>
               <p>화면에 나오는 순서대로 브라우저 메뉴를 눌러 설치하세요.</p>
               <img class="shot" src="img/install-samsung-menu.jpg" alt="브라우저 메뉴로 설치하는 순서 안내" />
+            </div>
+            <div class="tip">
+              <b>“출처를 알 수 없는 앱” 창이 뜨면</b>
+              <p>삼성 인터넷으로 설치할 때 뜨는 창입니다. 카카오톡 링크를 다시 눌러 <b>크롬으로 열기</b>로 설치하면 이 창 없이 설치됩니다.</p>
             </div>
           </li>
           <li class="step">
@@ -174,6 +182,31 @@
         </ol>
       </section>
 
+      <section class="guide" id="features">
+        <header>
+          <img src="../icons/qr-pay-192.png" alt="" />
+          <div><h2>편리한 기능</h2><p>갤럭시와 아이폰 모두 같습니다</p></div>
+        </header>
+        <ul class="features">
+          <li class="step">
+            <h3>말로 금액 넣기</h3>
+            <p>“받을 금액” 옆 <b>말로 입력</b>을 누르고 “만오천원”처럼 말씀하세요. 금액이 저절로 들어갑니다. 잘못 들었으면 다시 누르고 말씀하시면 바뀝니다.</p>
+            <p class="note">처음 한 번은 “마이크 허용”을 눌러 주세요. 인터넷이 약하면 숫자 키로 입력하세요. 아이폰 홈 화면 앱에서는 이 버튼이 안 보일 수 있어요.</p>
+            <img class="shot" src="img/voice.jpg" alt="말로 입력으로 15,000원이 들어간 금액 화면" />
+          </li>
+          <li class="step">
+            <h3>QR 코드 다시 보여 주기</h3>
+            <p>QR 화면은 15초 뒤 금액 화면으로 돌아갑니다. 손님이 아직 못 찍었으면 <b>QR 코드 다시 보기</b>를 누르세요. 15초부터 다시 셉니다.</p>
+            <img class="shot" src="img/qr.jpg" alt="QR 화면 아래의 QR 코드 다시 보기 버튼" />
+          </li>
+          <li class="step">
+            <h3>100원 단위 가격 받기</h3>
+            <p>1,500원처럼 100원 단위 가격이 있으면 <b>설정 → 맨 아래 “100원 단위 가격 입력”</b>을 켜세요. 처음에는 꺼져 있어서 1,000원 단위로만 입력됩니다.</p>
+            <img class="shot" src="img/settings-step.jpg" alt="설정 맨 아래의 100원 단위 가격 입력 스위치" />
+          </li>
+        </ul>
+      </section>
+
       <section class="guide" id="share">
         <header>
           <img src="../icons/qr-pay-192.png" alt="" />
@@ -198,6 +231,7 @@
           <a href="cards/android-2.jpg"><img src="cards/android-2.jpg" alt="갤럭시 설치 방법 2/2" /></a>
           <a href="cards/iphone-1.jpg"><img src="cards/iphone-1.jpg" alt="아이폰 설치 방법 1/2" /></a>
           <a href="cards/iphone-2.jpg"><img src="cards/iphone-2.jpg" alt="아이폰 설치 방법 2/2" /></a>
+          <a href="cards/features.jpg"><img src="cards/features.jpg" alt="편리한 기능" /></a>
         </div>
       </section>
 

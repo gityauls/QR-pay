@@ -27,7 +27,13 @@ describe('fragment payment URL', () => {
     });
   });
 
-  it.each([99, 500_001, 1.5])('rejects invalid amount %s', (amount) => {
+  it('carries a 100-won amount for sellers who allow it', () => {
+    const url = buildPayUrl('https://example.com/QR-pay/', '분식집', seller, 15_500);
+    const parsed = parsePaymentRequest(new URL(url).hash);
+    expect(parsed.ok && parsed.amount).toBe(15_500);
+  });
+
+  it.each([99, 150, 500_001, 1.5])('rejects invalid amount %s', (amount) => {
     expect(() => buildPayUrl('https://example.com/', '상점', seller, amount)).toThrow(
       '올바른 금액이 아닙니다.',
     );

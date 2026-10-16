@@ -1,0 +1,626 @@
+<title>QR 송금 크기 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+/* Layout: phone preview on the left (sticky on desktop), slider panel on the right; stacks on phones. */
+:root {
+  --bg: #eef2f3;
+  --panel: #ffffff;
+  --ink: #14232a;
+  --muted: #55666d;
+  --line: #d3dcdf;
+  --accent: #155e75;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3eff2;
+  --ok: #166534;
+  --warn: #9a3412;
+  --frame: #1c2529;
+  --font-ui: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --font-app: system-ui, -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1719; --panel: #172225; --ink: #e6eef0; --muted: #9bb0b6; --line: #2b3a3e;
+    --accent: #5fb3c9; --accent-ink: #0b1416; --accent-soft: #1d3238; --ok: #6fcf8f; --warn: #f0a37a;
+    --frame: #050809; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1719; --panel: #172225; --ink: #e6eef0; --muted: #9bb0b6; --line: #2b3a3e;
+  --accent: #5fb3c9; --accent-ink: #0b1416; --accent-soft: #1d3238; --ok: #6fcf8f; --warn: #f0a37a;
+  --frame: #050809; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.top h1 { margin: 0 0 6px; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+.top p { margin: 0; color: var(--muted); max-width: 62ch; }
+.layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 32px;
+  margin-top: 22px;
+  align-items: start;
+}
+.stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 12px; justify-items: center; }
+.stage-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
+.tabs { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.tabs button {
+  border: 0; border-radius: 999px; padding: 7px 16px; background: transparent; color: var(--muted);
+  font: 600 0.95rem var(--font-ui); cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.size-select { font: 600 0.9rem var(--font-ui); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+
+.phone {
+  width: min(calc(var(--pw) + 20px), 100%);
+  height: calc(var(--ph) + 20px);
+  border: 10px solid var(--frame);
+  border-radius: 34px;
+  overflow: hidden;
+  background: #f3f4f6;
+  box-shadow: 0 18px 40px rgba(10, 20, 24, 0.22);
+}
+.phone .screen { height: 100%; }
+.phone-note { margin: 0; color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+.controls { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.card h2 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 700; }
+.card .lead { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; }
+.sliders { display: grid; gap: 4px; }
+.slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.slider:first-child { border-top: 0; }
+.slider label { font-weight: 600; }
+.slider output { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); min-width: 4.5ch; text-align: right; }
+.slider .row { grid-column: 1 / -1; display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 8px; align-items: center; }
+.slider input[type=range] { width: 100%; accent-color: var(--accent); }
+.step { height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: 700 1rem var(--font-ui); cursor: pointer; }
+.slider small { grid-column: 1 / -1; color: var(--muted); font-size: 0.8rem; }
+.slider small.changed { color: var(--warn); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; background: var(--panel); color: var(--ink); font: 600 0.95rem var(--font-ui); cursor: pointer; }
+.btn--main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-size: 1.05rem; padding: 13px 20px; }
+.status { margin: 10px 0 0; min-height: 1.5em; font-weight: 600; }
+.status.ok { color: var(--ok); }
+.status.err { color: var(--warn); }
+details summary { cursor: pointer; font-weight: 600; }
+.code { margin-top: 10px; width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--bg); color: var(--ink); font: 0.8rem/1.45 ui-monospace, Consolas, monospace; }
+
+/* ---------- App replica (light-only, mirrors src/styles.css) ---------- */
+.app { font-family: var(--font-app); color: #111827; }
+.app button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+.s-shell { display: flex; flex-direction: column; height: 100%; padding: 0 10px 8px; background: #f3f4f6; }
+.s-header {
+  margin: 0 -10px; padding: 10px 14px; color: #ffffff; background: #155e75;
+  box-shadow: 0 3px 12px rgba(17, 24, 39, 0.18);
+  display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr) auto; column-gap: 12px; align-items: center;
+}
+.s-who { min-width: 0; }
+.s-caption { display: block; font-size: 13px; font-weight: 750; opacity: 0.9; }
+.s-name { display: block; font-size: var(--hdrName); font-weight: 950; line-height: 1.15; overflow-wrap: anywhere; }
+.s-acct { min-width: 0; padding-left: 12px; border-left: 1px solid rgba(255, 255, 255, 0.38); }
+.s-bank { display: block; font-size: calc(var(--hdrAcct) * 0.82); font-weight: 750; opacity: 0.92; line-height: 1.25; }
+.s-acct { container-type: inline-size; }
+.s-number { display: block; font-size: min(var(--hdrAcct), calc(100cqi / (14 * 0.62))); font-weight: 850; letter-spacing: 0.01em; line-height: 1.25; white-space: nowrap; }
+.s-title-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 4px; }
+.s-title-row .s-title { margin: 0; }
+.s-voice {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--voiceH); padding: 4px 14px 4px 10px;
+  border: 2px solid #0c4a6e; border-radius: 999px; color: #0c4a6e; background: #ffffff;
+  font-size: var(--voice); font-weight: 900; box-shadow: 0 2px 0 #0c4a6e;
+}
+.s-voice svg { width: 1.3em; height: 1.3em; }
+.s-voice.listening { color: #ffffff; border-color: #b91c1c; background: #dc2626; box-shadow: 0 2px 0 #7f1d1d; }
+
+.q-shell { display: flex; flex-direction: column; justify-content: center; height: 100%; overflow-y: auto; padding: 0 16px 24px; background: #f3f4f6; }
+.q-header { margin: 0 -16px; padding: 18px 20px 20px; }
+.q-panel { margin-top: 16px; padding: 24px 18px; border: 1px solid #d1d5db; border-radius: 22px; background: #ffffff; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08); text-align: center; }
+.q-label { margin: 0; color: #0c4a6e; font-size: 22px; font-weight: 900; }
+.q-amount { margin: 18px 0 2px; font-size: clamp(48px, calc(var(--pw) * 0.14), 80px); font-weight: 950; line-height: 1.05; letter-spacing: -0.045em; }
+.q-frame { width: clamp(240px, calc(var(--ph) - 430px), 410px); max-width: 100%; margin: 20px auto 14px; padding: 10px; border: 10px solid #155e75; border-radius: 20px; background: #ffffff; }
+.q-frame canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.q-count { margin: 14px 0 0; padding: 14px; border-radius: 12px; color: #713f12; background: #fef3c7; font-size: var(--countdown); font-weight: 850; }
+.q-replay { width: 100%; min-height: var(--replayH); margin-top: 12px; border: 2px solid #9ca3af; border-radius: 14px; color: #111827; background: #ffffff; font-size: var(--replay); font-weight: 850; line-height: 1.25; }
+.q-replay:active, .s-voice:active { transform: translateY(2px); }
+.s-settings { min-height: 44px; padding: 7px 13px; border: 2px solid #9ca3af; border-radius: 14px; background: #ffffff; color: #111827; font-size: 16px; font-weight: 850; }
+.s-panel {
+  flex: 1; display: flex; flex-direction: column; min-height: 0; margin-top: 8px; padding: 8px 10px;
+  border: 1px solid #d1d5db; border-radius: 16px; background: #ffffff; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08); text-align: center;
+}
+.s-title { margin: 0 0 4px; font-size: 20px; font-weight: 900; }
+.s-amount { margin: 0; padding: 5px; border: 2px solid #111827; border-radius: 11px; font-size: var(--amount); font-weight: 950; line-height: 1.05; letter-spacing: -0.045em; }
+.s-hint { min-height: 1.25em; margin: 3px 0 6px; color: #4b5563; font-size: var(--hint); font-weight: 750; line-height: 1.25; }
+.s-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 9px; }
+.s-quick button {
+  min-height: var(--quickH); padding: 4px; border: 2px solid #0c4a6e; border-radius: 10px; color: #0c4a6e; background: #e0f2fe;
+  font-size: var(--quick); font-weight: 900; box-shadow: 0 2px 0 #0c4a6e;
+}
+.s-keypad { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, minmax(48px, 1fr)); gap: var(--gap); }
+.s-key {
+  container-type: size; display: grid; place-items: center; padding: 0; min-height: 48px;
+  border: 2px solid #9ca3af; border-radius: 10px; color: #111827; background: #ffffff; box-shadow: 0 2px 0 #9ca3af;
+}
+.s-key span { font-size: min(calc(var(--digit) * 1cqh / 0.72), 85cqw); font-weight: 900; line-height: 1; }
+.s-key.util { color: #1f2937; background: #e5e7eb; }
+.s-key.util span { font-size: var(--util); font-weight: 850; line-height: 1.15; }
+.s-key:active, .s-quick button:active, .p-bank:active { transform: translateY(2px); }
+.s-qr {
+  width: 100%; min-height: var(--qrH); margin-top: 10px; border: 2px solid #9ca3af; border-radius: 14px;
+  color: #374151; background: #d1d5db; font-size: var(--qr); font-weight: 850;
+}
+.s-qr.ready { color: #ffffff; border-color: transparent; background: #075985; }
+
+.p-screen { height: 100%; overflow-y: auto; padding: 20px 16px 24px; background: #f3f4f6; }
+.p-card { padding: 24px 18px; border: 1px solid #d1d5db; border-top: 9px solid #155e75; border-radius: 22px; background: #ffffff; text-align: center; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08); }
+.p-shop { margin: 0; color: #075985; font-size: 18px; font-weight: 850; }
+.p-label { margin: 16px 0 0; color: #4b5563; font-size: 20px; font-weight: 850; }
+.p-amount { margin: 4px 0 2px; font-size: var(--payAmt); font-weight: 950; line-height: 1.05; letter-spacing: -0.045em; }
+.p-words { margin: 6px 0 0; color: #4b5563; font-size: var(--text); font-weight: 750; }
+.p-account { margin: 20px 0; padding: 4px 14px; border: 3px solid #155e75; border-radius: 16px; background: #f8fafc; }
+.p-row { display: grid; grid-template-columns: 4.8em minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid #cbd5e1; text-align: left; }
+.p-row:last-child { border-bottom: 0; }
+.p-row dt { color: #4b5563; font-size: calc(var(--acct) * 0.72); font-weight: 800; }
+.p-row dd { margin: 0; min-width: 0; font-size: var(--acct); font-weight: 900; overflow-wrap: anywhere; }
+.p-section { margin-top: 24px; padding-top: 20px; border-top: 2px solid #d1d5db; }
+.p-title { margin: 0; font-size: calc(var(--text) * 1.35); font-weight: 950; line-height: 1.3; }
+.p-help { margin: 6px 0 14px; color: #4b5563; font-size: var(--text); font-weight: 700; }
+.p-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.p-bank { min-height: var(--bankH); padding: 6px; border: 2px solid #9ca3af; border-radius: 14px; color: #111827; background: #ffffff; font-size: var(--bank); font-weight: 900; box-shadow: 0 2px 0 #9ca3af; line-height: 1.2; }
+.p-bank.toss { color: #ffffff; border-color: #0064ff; background: #0064ff; box-shadow: 0 2px 0 #0047b3; }
+.p-copy { margin: 14px 0 0; color: #4b5563; font-size: var(--text); font-weight: 800; line-height: 1.45; }
+.p-steps { margin-top: 18px; padding: 16px; border-radius: 16px; background: #e0f2fe; text-align: left; }
+.p-steps h3 { margin: 0 0 10px; font-size: calc(var(--text) * 1.2); }
+.p-steps p { margin: 8px 0; font-size: var(--text); font-weight: 700; line-height: 1.5; }
+.p-steps .amt { color: #7c2d12; font-weight: 900; }
+.p-again { margin-top: 10px; width: 100%; min-height: 52px; border: 0; background: transparent; color: #0c4a6e; font-size: var(--text); font-weight: 850; text-decoration: underline; text-underline-offset: 4px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .stage { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>QR 송금 글자 크기 시안</h1>
+    <p>슬라이더를 움직이면 휴대폰 화면이 바로 바뀝니다. 숫자 키와 +1만원 버튼도 눌러 볼 수 있어요. 마음에 들면 맨 아래 <b>이 크기로 확정</b>을 누르세요.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="휴대폰 미리보기">
+      <div class="stage-bar">
+        <div class="tabs" role="tablist">
+          <button id="tab-seller" role="tab" aria-selected="true" data-tab="seller">판매자 화면</button>
+          <button id="tab-qr" role="tab" aria-selected="false" data-tab="qr">QR 화면</button>
+          <button id="tab-pay" role="tab" aria-selected="false" data-tab="pay">고객 화면</button>
+        </div>
+        <select id="phone-size" class="size-select" aria-label="휴대폰 크기">
+          <option value="small">작은 폰 (폭 360)</option>
+          <option value="mid" selected>갤럭시 보통 (폭 384)</option>
+          <option value="large">큰 폰 (폭 412)</option>
+        </select>
+      </div>
+
+      <div class="phone app" id="phone">
+        <div class="screen" id="screen-seller">
+          <div class="s-shell">
+            <header class="s-header">
+              <div class="s-who">
+                <span class="s-caption">현재 받는 분</span>
+                <strong class="s-name">홍길동</strong>
+              </div>
+              <div class="s-acct">
+                <span class="s-bank">NH농협은행</span>
+                <span class="s-number">12345678901234</span>
+              </div>
+              <button class="s-settings" type="button">설정</button>
+            </header>
+            <div class="s-panel">
+              <div class="s-title-row">
+                <h3 class="s-title">받을 금액</h3>
+                <button class="s-voice" id="m-voice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg><span>말로 입력</span></button>
+              </div>
+              <p class="s-amount" id="m-amount">0원</p>
+              <p class="s-hint" id="m-hint">1,000원 단위 · 최대 500,000원</p>
+              <div class="s-quick" id="m-quick"></div>
+              <div class="s-keypad" id="m-keypad"></div>
+              <button class="s-qr" id="m-qr" type="button">QR 만들기</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-qr" hidden>
+          <div class="q-shell">
+            <header class="s-header q-header">
+              <div class="s-who">
+                <span class="s-caption">현재 받는 분</span>
+                <strong class="s-name">홍길동</strong>
+              </div>
+              <div class="s-acct">
+                <span class="s-bank">NH농협은행</span>
+                <span class="s-number">12345678901234</span>
+              </div>
+            </header>
+            <div class="q-panel">
+              <p class="q-label">고객에게 이 QR을 보여 주세요</p>
+              <p class="q-amount">15,000원</p>
+              <div class="q-frame"><canvas id="m-qr-code" width="290" height="290" aria-label="QR 코드 예시"></canvas></div>
+              <p class="q-count" id="m-count">15초 뒤 금액 입력 화면으로 돌아갑니다.</p>
+              <button class="q-replay" id="m-replay" type="button">QR 코드 다시 보기</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-pay" hidden>
+          <div class="p-screen">
+            <div class="p-card">
+              <p class="p-shop">행복 농산물</p>
+              <p class="p-label">보낼 금액</p>
+              <p class="p-amount">5,000원</p>
+              <p class="p-words">5천원</p>
+              <dl class="p-account">
+                <div class="p-row"><dt>받는 은행</dt><dd>NH농협은행</dd></div>
+                <div class="p-row"><dt>예금주</dt><dd>홍길동</dd></div>
+                <div class="p-row"><dt>계좌번호</dt><dd>12345678901234</dd></div>
+              </dl>
+              <section class="p-section">
+                <h3 class="p-title">사용할 은행 앱을 선택하세요</h3>
+                <p class="p-help">마지막 송금 전 받는 분과 금액을 확인하세요.</p>
+                <div class="p-grid" id="m-banks"></div>
+                <p class="p-copy">은행 앱을 누르면 계좌번호가 먼저 복사됩니다. 앱이 열리지 않으면 직접 앱을 열어 붙여넣으세요.</p>
+              </section>
+              <aside class="p-steps">
+                <h3>직접 송금하려면</h3>
+                <p>1. 받는 은행에서 NH농협은행을 선택하세요.</p>
+                <p>2. 복사한 계좌번호를 붙여넣으세요.</p>
+                <p class="amt">3. 5,000원을 입력하고 받는 분을 확인하세요.</p>
+              </aside>
+              <button class="p-again" type="button">계좌번호만 다시 복사</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="phone-note" id="phone-note">예시 정보로 보여 드립니다.</p>
+    </section>
+
+    <section class="controls">
+      <div class="card" id="group-seller">
+        <h2>판매자 화면 (장인·장모님 휴대폰)</h2>
+        <p class="lead">숫자 키는 키 높이에 맞춰 커집니다. 점선 높이만큼이면 50% 정도예요. [말로 입력]을 누르면 “만오천원”을 들은 것처럼 보여 드립니다.</p>
+        <div class="sliders" data-group="seller"></div>
+      </div>
+      <div class="card" id="group-qr" hidden>
+        <h2>QR 화면 (손님에게 보여 주는 화면)</h2>
+        <p class="lead">안내문의 숫자가 1초마다 줄어듭니다. [QR 코드 다시 보기]를 누르면 15초부터 다시 셉니다.</p>
+        <div class="sliders" data-group="qr"></div>
+      </div>
+      <div class="card" id="group-pay" hidden>
+        <h2>고객 화면 (손님 휴대폰)</h2>
+        <p class="lead">은행은 처음부터 전부 보이도록 바꿨습니다. 화면은 위아래로 밀어서 볼 수 있어요.</p>
+        <div class="sliders" data-group="pay"></div>
+      </div>
+
+      <div class="card">
+        <h2>기준값 불러오기</h2>
+        <p class="lead">Claude 추천값에서 시작하거나, 지금 앱 크기와 비교해 보세요.</p>
+        <div class="actions">
+          <button class="btn" id="preset-rec" type="button">Claude 추천값</button>
+          <button class="btn" id="preset-cur" type="button">지금 앱 크기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>확정해서 보내기</h2>
+        <p class="lead">판매자·QR·고객 화면 값이 함께 저장됩니다. 저장한 뒤 Claude에게 “저장했어”라고만 보내 주세요.</p>
+        <button class="btn btn--main" id="save" type="button">이 크기로 확정</button>
+        <p class="status" id="save-status" role="status"></p>
+        <details>
+          <summary>저장이 안 되면 코드 복사하기</summary>
+          <textarea class="code" id="code" readonly aria-label="크기 코드"></textarea>
+          <div class="actions"><button class="btn" id="copy" type="button">코드 복사</button></div>
+          <p class="status" id="copy-status" role="status"></p>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  // rec = Claude 추천값, cur = 지금 앱에 적용된 값 (2026-10-16 확정 + 2026-10-17 새 버튼).
+  const DEFS = [
+    { k: 'hdrName', g: 'seller', label: '받는 분 이름', min: 18, max: 36, u: 'px', rec: 26, cur: 26 },
+    { k: 'hdrAcct', g: 'seller', label: '은행·계좌번호 (이름 옆)', min: 13, max: 24, u: 'px', rec: 18, cur: 18 },
+    { k: 'voice', g: 'seller', label: '말로 입력 버튼 글자', min: 14, max: 24, u: 'px', rec: 17, cur: 17 },
+    { k: 'voiceH', g: 'seller', label: '말로 입력 버튼 높이', min: 34, max: 56, u: 'px', rec: 40, cur: 40 },
+    { k: 'amount', g: 'seller', label: '받을 금액 숫자', min: 30, max: 64, u: 'px', rec: 46, cur: 46 },
+    { k: 'hint', g: 'seller', label: '금액 아래 안내 글자', min: 12, max: 20, u: 'px', rec: 15, cur: 15 },
+    { k: 'quick', g: 'seller', label: '+1만원 버튼 글자', min: 14, max: 28, u: 'px', rec: 21, cur: 21 },
+    { k: 'quickH', g: 'seller', label: '+1만원 버튼 높이', min: 40, max: 72, u: 'px', rec: 54, cur: 54 },
+    { k: 'digit', g: 'seller', label: '숫자 키 크기 (키 높이 대비)', min: 20, max: 70, u: '%', rec: 50, cur: 50 },
+    { k: 'util', g: 'seller', label: '지우기 버튼 글자 (2줄)', min: 12, max: 26, u: 'px', rec: 19, cur: 19 },
+    { k: 'gap', g: 'seller', label: '키 사이 간격', min: 4, max: 14, u: 'px', rec: 8, cur: 8 },
+    { k: 'qr', g: 'seller', label: 'QR 만들기 글자', min: 16, max: 30, u: 'px', rec: 24, cur: 24 },
+    { k: 'qrH', g: 'seller', label: 'QR 만들기 버튼 높이', min: 44, max: 76, u: 'px', rec: 60, cur: 60 },
+    { k: 'countdown', g: 'qr', label: '“15초 뒤…” 안내 글자', min: 14, max: 24, u: 'px', rec: 18, cur: 18 },
+    { k: 'replay', g: 'qr', label: 'QR 코드 다시 보기 글자', min: 16, max: 28, u: 'px', rec: 21, cur: 21 },
+    { k: 'replayH', g: 'qr', label: 'QR 코드 다시 보기 높이', min: 48, max: 76, u: 'px', rec: 60, cur: 60 },
+    { k: 'payAmt', g: 'pay', label: '보낼 금액 숫자', min: 36, max: 72, u: 'px', rec: 58, cur: 58 },
+    { k: 'acct', g: 'pay', label: '받는 은행·예금주·계좌번호', min: 16, max: 28, u: 'px', rec: 22, cur: 22 },
+    { k: 'bank', g: 'pay', label: '은행 버튼 글자', min: 16, max: 30, u: 'px', rec: 23, cur: 23 },
+    { k: 'bankH', g: 'pay', label: '은행 버튼 높이', min: 52, max: 84, u: 'px', rec: 64, cur: 64 },
+    { k: 'text', g: 'pay', label: '안내문 글자', min: 14, max: 22, u: 'px', rec: 18, cur: 18 },
+  ];
+  const PHONES = { small: { w: 360, h: 720 }, mid: { w: 384, h: 780 }, large: { w: 412, h: 830 } };
+  const BANKS = ['NH농협', 'KB국민', '신한', '우리', '하나', 'IBK기업', '카카오뱅크', '토스', '케이뱅크', '새마을금고', '우체국', '수협'];
+  const DRAFT_KEY = 'qrpay-size-draft';
+  const pick = (field) => Object.fromEntries(DEFS.map((d) => [d.k, d[field]]));
+
+  let values = pick('rec');
+  let phoneSize = 'mid';
+  let hadDraft = false;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      const draft = JSON.parse(raw);
+      if (draft && draft.values) { values = { ...values, ...draft.values }; hadDraft = true; }
+      if (draft && PHONES[draft.phone]) phoneSize = draft.phone;
+    }
+  } catch { /* draft is optional */ }
+
+  const phone = document.getElementById('phone');
+  const inputs = {};
+
+  function clampValue(def, v) { return Math.min(def.max, Math.max(def.min, Math.round(Number(v) || def.rec))); }
+
+  function buildSliders() {
+    for (const def of DEFS) {
+      const host = document.querySelector(`.sliders[data-group="${def.g}"]`);
+      const row = document.createElement('div');
+      row.className = 'slider';
+      const id = `s-${def.k}`;
+      row.innerHTML = `
+        <label for="${id}">${def.label}</label>
+        <output for="${id}"></output>
+        <div class="row">
+          <button class="step" type="button" aria-label="${def.label} 줄이기">−</button>
+          <input id="${id}" type="range" min="${def.min}" max="${def.max}" step="1">
+          <button class="step" type="button" aria-label="${def.label} 키우기">+</button>
+        </div>
+        <small></small>`;
+      const input = row.querySelector('input');
+      const [minus, plus] = row.querySelectorAll('.step');
+      input.addEventListener('input', () => { values[def.k] = clampValue(def, input.value); apply(); });
+      minus.addEventListener('click', () => { values[def.k] = clampValue(def, values[def.k] - 1); apply(); });
+      plus.addEventListener('click', () => { values[def.k] = clampValue(def, values[def.k] + 1); apply(); });
+      inputs[def.k] = { input, output: row.querySelector('output'), note: row.querySelector('small'), def };
+      host.append(row);
+    }
+  }
+
+  function apply() {
+    const size = PHONES[phoneSize];
+    phone.style.setProperty('--pw', `${size.w}px`);
+    phone.style.setProperty('--ph', `${size.h}px`);
+    for (const def of DEFS) {
+      const v = values[def.k];
+      phone.style.setProperty(`--${def.k}`, def.u === '%' ? String(v) : `${v}px`);
+      const ui = inputs[def.k];
+      ui.input.value = v;
+      ui.output.textContent = `${v}${def.u}`;
+      const diff = v - def.cur;
+      ui.note.textContent = diff === 0 ? `지금 앱과 같음 (${def.cur}${def.u})` : `지금 앱 ${def.cur}${def.u} → ${diff > 0 ? '+' : ''}${diff}`;
+      ui.note.className = diff === 0 ? '' : 'changed';
+    }
+    document.getElementById('code').value = codeText();
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ values, phone: phoneSize })); } catch { /* optional */ }
+  }
+
+  function codeText() { return `QRPAY-SIZE ${JSON.stringify({ phone: phoneSize, ...values })}`; }
+
+  // Working keypad in the seller preview
+  let digits = '';
+  const amountEl = document.getElementById('m-amount');
+  const hintEl = document.getElementById('m-hint');
+  const qrEl = document.getElementById('m-qr');
+  function words(n) {
+    const man = Math.floor(n / 10000);
+    const cheon = Math.floor((n % 10000) / 1000);
+    return `${man ? `${man}만` : ''}${man && cheon ? ' ' : ''}${cheon ? `${cheon}천` : ''}원`;
+  }
+  function refreshAmount() {
+    const n = digits ? Number(digits) : 0;
+    const valid = n >= 1000 && n <= 500000 && n % 1000 === 0;
+    amountEl.textContent = `${n.toLocaleString('ko-KR')}원`;
+    hintEl.textContent = !digits ? '1,000원 단위 · 최대 500,000원' : valid ? words(n) : '1,000원부터 500,000원까지 1,000원 단위로 입력해 주세요.';
+    qrEl.classList.toggle('ready', valid);
+  }
+  function setDigits(next) {
+    const trimmed = next.replace(/^0+/, '');
+    if (trimmed.length > 6 || Number(trimmed) > 500000) return;
+    digits = trimmed;
+    refreshAmount();
+  }
+  const quick = document.getElementById('m-quick');
+  for (const [step, label] of [[10000, '+1만원'], [5000, '+5천원'], [1000, '+1천원']]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', () => setDigits(String((digits ? Number(digits) : 0) + step)));
+    quick.append(b);
+  }
+  const keypad = document.getElementById('m-keypad');
+  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'];
+  for (const key of KEYS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 's-key' + (key === 'clear' || key === 'back' ? ' util' : '');
+    const span = document.createElement('span');
+    if (key === 'clear') span.innerHTML = '전체<br>지우기';
+    else if (key === 'back') span.innerHTML = '한 글자<br>지우기';
+    else span.textContent = key;
+    b.append(span);
+    b.addEventListener('click', () => {
+      if (key === 'clear') { digits = ''; refreshAmount(); }
+      else if (key === 'back') { digits = digits.slice(0, -1); refreshAmount(); }
+      else setDigits(digits + key);
+    });
+    keypad.append(b);
+  }
+  const banks = document.getElementById('m-banks');
+  for (const name of BANKS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'p-bank' + (name === '토스' ? ' toss' : '');
+    b.textContent = name;
+    banks.append(b);
+  }
+
+  // Tabs and phone size
+  function showTab(tab) {
+    for (const t of document.querySelectorAll('.tabs button')) t.setAttribute('aria-selected', String(t.dataset.tab === tab));
+    for (const name of ['seller', 'qr', 'pay']) {
+      document.getElementById(`screen-${name}`).hidden = tab !== name;
+      document.getElementById(`group-${name}`).hidden = tab !== name;
+    }
+  }
+
+  // Voice button demo: listen for a moment, then show what was heard
+  const voiceBtn = document.getElementById('m-voice');
+  voiceBtn.addEventListener('click', () => {
+    if (voiceBtn.classList.contains('listening')) return;
+    voiceBtn.classList.add('listening');
+    voiceBtn.querySelector('span').textContent = '듣는 중…';
+    hintEl.textContent = '“만오천원”처럼 말씀해 주세요.';
+    setTimeout(() => {
+      voiceBtn.classList.remove('listening');
+      voiceBtn.querySelector('span').textContent = '말로 입력';
+      digits = '15000';
+      refreshAmount();
+      hintEl.textContent = '“만오천원” → 1만 5천원';
+    }, 1200);
+  });
+
+  // QR screen demo: a stand-in QR pattern and a looping countdown
+  (() => {
+    const canvas = document.getElementById('m-qr-code');
+    const ctx = canvas.getContext('2d');
+    const cells = 29;
+    const size = canvas.width / cells;
+    let seed = 7;
+    const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000000';
+    const finder = (x, y) => {
+      ctx.fillRect(x * size, y * size, 7 * size, 7 * size);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect((x + 1) * size, (y + 1) * size, 5 * size, 5 * size);
+      ctx.fillStyle = '#000000'; ctx.fillRect((x + 2) * size, (y + 2) * size, 3 * size, 3 * size);
+    };
+    const inFinder = (x, y) => (x < 8 && y < 8) || (x > cells - 9 && y < 8) || (x < 8 && y > cells - 9);
+    for (let y = 0; y < cells; y += 1) {
+      for (let x = 0; x < cells; x += 1) {
+        if (!inFinder(x, y) && random() > 0.52) ctx.fillRect(x * size, y * size, size, size);
+      }
+    }
+    finder(0, 0); finder(cells - 7, 0); finder(0, cells - 7);
+  })();
+  const countEl = document.getElementById('m-count');
+  let seconds = 15;
+  const paintCount = () => { countEl.textContent = `${seconds}초 뒤 금액 입력 화면으로 돌아갑니다.`; };
+  setInterval(() => { seconds = seconds > 1 ? seconds - 1 : 15; paintCount(); }, 1000);
+  document.getElementById('m-replay').addEventListener('click', () => { seconds = 15; paintCount(); });
+  for (const t of document.querySelectorAll('.tabs button')) t.addEventListener('click', () => showTab(t.dataset.tab));
+  const sizeSelect = document.getElementById('phone-size');
+  sizeSelect.value = phoneSize;
+  sizeSelect.addEventListener('change', () => { phoneSize = sizeSelect.value; apply(); });
+
+  document.getElementById('preset-rec').addEventListener('click', () => { values = pick('rec'); apply(); });
+  document.getElementById('preset-cur').addEventListener('click', () => { values = pick('cur'); apply(); });
+
+  // Copy fallback
+  document.getElementById('copy').addEventListener('click', () => {
+    const area = document.getElementById('code');
+    const status = document.getElementById('copy-status');
+    const fallback = () => { area.focus(); area.select(); status.textContent = '코드를 선택했어요. 길게 눌러 복사해 주세요.'; status.className = 'status'; };
+    try {
+      navigator.clipboard.writeText(area.value).then(() => {
+        status.textContent = '복사했어요. Claude에게 붙여넣어 보내 주세요.';
+        status.className = 'status ok';
+      }, fallback);
+    } catch { fallback(); }
+  });
+
+  // Save to the artifact's store so Claude can read it back
+  const saveBtn = document.getElementById('save');
+  const saveStatus = document.getElementById('save-status');
+  let store = null;
+  const timeText = (iso) => new Date(iso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  saveBtn.addEventListener('click', async () => {
+    if (!store) {
+      saveStatus.textContent = '여기서는 저장할 수 없어요. 아래 “코드 복사하기”를 열어 코드를 보내 주세요.';
+      saveStatus.className = 'status err';
+      document.querySelector('details').open = true;
+      return;
+    }
+    saveBtn.disabled = true;
+    saveStatus.textContent = '저장하는 중…';
+    saveStatus.className = 'status';
+    const savedAt = new Date().toISOString();
+    try {
+      await store.set({ version: 1, phone: phoneSize, values: { ...values }, savedAt });
+      saveStatus.textContent = `저장했어요 (${timeText(savedAt)}). Claude에게 “저장했어”라고 보내 주세요.`;
+      saveStatus.className = 'status ok';
+    } catch {
+      saveStatus.textContent = '저장하지 못했어요. 아래 “코드 복사하기”를 열어 코드를 보내 주세요.';
+      saveStatus.className = 'status err';
+      document.querySelector('details').open = true;
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  buildSliders();
+  refreshAmount();
+  apply();
+
+  (async () => {
+    try {
+      const db = await window.claude?.use?.('db');
+      if (!db) return;
+      store = db.doc('tuning/final');
+      const snap = await store.get();
+      if (!snap.exists) return;
+      const saved = snap.data();
+      saveStatus.textContent = `마지막 확정: ${timeText(saved.savedAt)}`;
+      saveStatus.className = 'status';
+      if (!hadDraft && saved.values) {
+        for (const def of DEFS) if (saved.values[def.k] !== undefined) values[def.k] = clampValue(def, saved.values[def.k]);
+        if (PHONES[saved.phone]) { phoneSize = saved.phone; sizeSelect.value = phoneSize; }
+        apply();
+      }
+    } catch { store = null; }
+  })();
+})();
+</script>

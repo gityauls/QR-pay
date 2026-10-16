@@ -1,0 +1,22 @@
+{
+  "savedAt": "2026-10-16T12:07:49.134Z",
+  "phone": "small",
+  "values": {
+    "hdrName": 26,
+    "hdrAcct": 18,
+    "amount": 46,
+    "hint": 15,
+    "quick": 21,
+    "quickH": 54,
+    "digit": 50,
+    "util": 19,
+    "gap": 8,
+    "qr": 24,
+    "qrH": 60,
+    "payAmt": 58,
+    "acct": 22,
+    "bank": 23,
+    "bankH": 64,
+    "text": 18
+  }
+}

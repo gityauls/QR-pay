@@ -11,10 +11,14 @@ import {
   addSeller, createLocalConfig, deleteSeller, loadLocalConfig, saveLocalConfig,
   updateSeller, updateShopName, type SellerInput,
 } from '../lib/local-config';
-import { formatWon, formatWonWords, parseAmount } from '../lib/money';
+import { DEFAULT_STEP, FINEST_STEP, formatWon, formatWonWords, MAX_AMOUNT, parseAmount } from '../lib/money';
 import { buildPayUrl } from '../lib/pay-url';
 import { detectPlatform, type Platform } from '../lib/platform';
-import { getSales, getTodaySummary, loadCurrentSeller, recordSale, saveCurrentSeller, type StorageLike } from '../lib/storage';
+import { createSpeechListener, type ListenResult } from '../lib/speech';
+import {
+  getSales, getTodaySummary, loadAmountStep, loadCurrentSeller, recordSale, saveAmountStep, saveCurrentSeller, type StorageLike,
+} from '../lib/storage';
+import { parseSpokenAmount } from '../lib/voice-amount';
 import { registerPwa } from '../pwa';
 import '../styles.css';
 
@@ -41,9 +45,30 @@ type SellerDependencies = {
   open?: (url: string) => void;
   share?: (data: ShareData) => Promise<ShareResult>;
   copy?: (text: string) => Promise<boolean>;
+  // Missing where the phone cannot recognize speech; the voice button is then hidden.
+  listen?: () => Promise<ListenResult>;
 };
 
 const SHARE_TEXT = '행사장에서 계좌이체를 QR로 받는 앱이에요. 링크를 눌러 휴대폰에 설치하세요.';
+const VOICE_ERRORS: Record<Extract<ListenResult, { ok: false }>['reason'], string> = {
+  denied: '마이크를 쓸 수 없어요. 휴대폰 설정에서 마이크를 허용해 주세요.',
+  'no-speech': '말씀이 들리지 않았어요. 다시 눌러 말씀해 주세요.',
+  network: '인터넷이 약해서 알아듣지 못했어요. 숫자 키로 입력해 주세요.',
+  failed: '지금은 말로 입력할 수 없어요. 숫자 키로 입력해 주세요.',
+};
+
+function micIcon(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(ns, 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.classList.add('voice-button__icon');
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('fill', 'currentColor');
+  path.setAttribute('d', 'M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z');
+  icon.append(path);
+  return icon;
+}
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -143,6 +168,7 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
   const appUrl = new URL('./', dependencies.baseUrl).toString();
   const guideUrl = new URL('./guide/', dependencies.baseUrl).toString();
   let config: AppConfig | null = loadLocalConfig(dependencies.storage);
+  let amountStep = loadAmountStep(dependencies.storage);
   let currentSellerId: SellerId | null = loadCurrentSeller(dependencies.storage);
   let digits = '';
   let activeTimer: TimerHandle | null = null;
@@ -179,10 +205,9 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
       element('strong', 'app-header__name', current.label),
     );
     const account = element('div', 'app-header__account');
-    account.append(
-      element('span', 'app-header__bank', current.bank),
-      element('span', 'app-header__number', current.accountDisplay),
-    );
+    const number = element('span', 'app-header__number', current.accountDisplay);
+    number.style.setProperty('--account-chars', String(current.accountDisplay.length));
+    account.append(element('span', 'app-header__bank', current.bank), number);
     header.append(who, account);
     if (headerAction) header.append(headerAction);
     return header;
@@ -229,15 +254,22 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
     const browserName = isIos ? 'Safari' : '크롬';
     card.append(element('p', 'app-kicker', 'QR 송금'));
     if (kind === 'kakao') {
+      // On Android, Chrome installs through the Play Store, so no "unknown apps" warning appears.
+      const target = isIos ? kakaoExternalUrl(appUrl) : chromeIntentUrl(appUrl);
       card.append(
         element('h1', 'screen-title', `${browserName}으로 엽니다`),
-        element('p', 'body-text', '카카오톡 안에서는 앱을 설치할 수 없어서 휴대폰 인터넷 앱으로 다시 엽니다.'),
+        element('p', 'body-text', `카카오톡 안에서는 앱을 설치할 수 없어서 ${isIos ? '휴대폰 인터넷 앱' : '크롬'}으로 다시 엽니다.`),
         element('p', 'body-text muted', '자동으로 열리지 않으면 아래 버튼을 눌러 주세요.'),
       );
-      const retry = action('인터넷 앱으로 열기', 'button button--primary primary-action');
-      retry.addEventListener('click', () => open(kakaoExternalUrl(appUrl)));
+      const retry = action(isIos ? '인터넷 앱으로 열기' : '크롬으로 열기', 'button button--primary primary-action');
+      retry.addEventListener('click', () => open(target));
       card.append(retry);
-      open(kakaoExternalUrl(appUrl));
+      if (!isIos) {
+        const other = action('다른 인터넷 앱으로 열기', 'button button--secondary primary-action');
+        other.addEventListener('click', () => open(kakaoExternalUrl(appUrl)));
+        card.append(other);
+      }
+      open(target);
     } else if (isIos) {
       card.append(
         element('h1', 'screen-title', 'Safari로 열어 주세요'),
@@ -349,23 +381,64 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
     settings.addEventListener('click', renderSettings);
     view.append(sellerHeader(current, settings));
     const card = element('div', 'panel amount-panel');
-    card.append(element('h1', 'screen-title amount-title', '받을 금액'));
+    const unit = `${formatWon(amountStep)} 단위`;
+    const titleRow = element('div', 'amount-title-row');
+    titleRow.append(element('h1', 'screen-title amount-title', '받을 금액'));
+    card.append(titleRow);
     const amountDisplay = element('p', 'amount-display', '0원');
     amountDisplay.dataset.testid = 'amount-display';
-    const amountWords = element('p', 'amount-words', '1,000원 단위 · 최대 500,000원');
+    const amountWords = element('p', 'amount-words', `${unit} · 최대 500,000원`);
     amountWords.setAttribute('aria-live', 'polite');
     card.append(amountDisplay, amountWords);
     const createQr = action('QR 만들기', 'button button--primary primary-action');
     createQr.disabled = true;
     const refresh = () => {
       const numeric = digits ? Number(digits) : 0;
-      const valid = parseAmount(digits);
+      const valid = parseAmount(digits, amountStep);
       amountDisplay.textContent = formatWon(numeric);
       amountWords.textContent = !digits
-        ? '1,000원 단위 · 최대 500,000원'
-        : valid === null ? '1,000원부터 500,000원까지 1,000원 단위로 입력해 주세요.' : formatWonWords(valid);
+        ? `${unit} · 최대 500,000원`
+        : valid === null ? `${formatWon(amountStep)}부터 500,000원까지 ${unit}로 입력해 주세요.` : formatWonWords(valid);
       createQr.disabled = valid === null;
     };
+    const listen = dependencies.listen;
+    if (listen) {
+      const voice = action('', 'voice-button');
+      const voiceText = element('span', undefined, '말로 입력');
+      voice.append(micIcon(), voiceText);
+      let listening = false;
+      voice.addEventListener('click', async () => {
+        if (listening) return;
+        listening = true;
+        voice.classList.add('voice-button--listening');
+        voiceText.textContent = '듣는 중…';
+        amountWords.textContent = '“만오천원”처럼 말씀해 주세요.';
+        const result = await listen();
+        listening = false;
+        voice.classList.remove('voice-button--listening');
+        voiceText.textContent = '말로 입력';
+        if (!result.ok) { amountWords.textContent = VOICE_ERRORS[result.reason]; return; }
+        const heard = result.transcripts
+          .map((text) => ({ text, amount: parseSpokenAmount(text) }))
+          .find((candidate) => candidate.amount !== null);
+        if (!heard || heard.amount === null) {
+          amountWords.textContent = `금액으로 알아듣지 못했어요 (들은 말: “${result.transcripts[0]}”). 다시 눌러 말씀해 주세요.`;
+          return;
+        }
+        if (heard.amount > MAX_AMOUNT) {
+          amountWords.textContent = `최대 500,000원까지 받을 수 있어요 (들은 말: “${heard.text}”).`;
+          return;
+        }
+        if (parseAmount(heard.amount, amountStep) === null) {
+          amountWords.textContent = `${unit}로 말씀해 주세요 (들은 말: “${heard.text}”).`;
+          return;
+        }
+        digits = String(heard.amount);
+        refresh();
+        amountWords.textContent = `“${heard.text}” → ${formatWonWords(heard.amount)}`;
+      });
+      titleRow.append(voice);
+    }
     const quickAmounts = element('div', 'quick-amounts');
     for (const [step, label] of [[10_000, '+1만원'], [5_000, '+5천원'], [1_000, '+1천원']] as const) {
       const quick = action(label, 'quick-amount');
@@ -402,7 +475,7 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
 
   async function renderQr(): Promise<void> {
     const current = seller();
-    const amount = parseAmount(digits);
+    const amount = parseAmount(digits, amountStep);
     if (!config || !current || amount === null) return;
     const payUrl = buildPayUrl(dependencies.baseUrl, config.shopName, current, amount);
     const view = shell('qr-screen');
@@ -422,15 +495,23 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
       image.alt = `${formatWon(amount)} 송금 QR 코드`;
       frame.append(image);
       status.replaceWith(frame);
-      const autoReturn = element('p', 'auto-return', '15초 뒤 금액 입력 화면으로 돌아갑니다.');
-      card.append(autoReturn);
+      const autoReturn = element('p', 'auto-return');
+      const startCountdown = () => {
+        clearTimers();
+        let seconds = 15;
+        autoReturn.textContent = `${seconds}초 뒤 금액 입력 화면으로 돌아갑니다.`;
+        activeInterval = timers.setInterval(() => {
+          seconds -= 1;
+          if (seconds > 0) autoReturn.textContent = `${seconds}초 뒤 금액 입력 화면으로 돌아갑니다.`;
+        }, 1_000);
+        activeTimer = timers.setTimeout(() => { digits = ''; renderAmount(); }, 15_000);
+      };
+      // Showing the same QR again restarts the countdown; it is still one sale.
+      const replay = action('QR 코드 다시 보기', 'button button--secondary primary-action qr-replay');
+      replay.addEventListener('click', startCountdown);
+      card.append(autoReturn, replay);
       recordSale(dependencies.storage, { occurredAt: dependencies.now().toISOString(), sellerId: current.id, amount });
-      let seconds = 15;
-      activeInterval = timers.setInterval(() => {
-        seconds -= 1;
-        if (seconds > 0) autoReturn.textContent = `${seconds}초 뒤 금액 입력 화면으로 돌아갑니다.`;
-      }, 1_000);
-      activeTimer = timers.setTimeout(() => { digits = ''; renderAmount(); }, 15_000);
+      startCountdown();
     } catch {
       status.textContent = 'QR을 만들지 못했습니다. 다시 시도해 주세요.';
     }
@@ -556,7 +637,29 @@ export function createSellerApp(root: HTMLElement, dependencies: SellerDependenc
       installApp.addEventListener('click', renderInstall);
       card.append(installApp);
     }
-    card.append(guideLink());
+    card.append(guideLink(), element('h2', 'settings-heading', '가격 입력'));
+    const stepSwitch = action('', 'setting-switch');
+    stepSwitch.setAttribute('role', 'switch');
+    const paintSwitch = () => {
+      const on = amountStep === FINEST_STEP;
+      stepSwitch.setAttribute('aria-checked', String(on));
+      const track = element('span', 'setting-switch__track');
+      track.setAttribute('aria-hidden', 'true');
+      track.append(element('span', 'setting-switch__knob'));
+      stepSwitch.replaceChildren(
+        element('span', 'setting-switch__text', '100원 단위 가격 입력'),
+        element('span', 'setting-switch__state', on ? '켜짐' : '꺼짐'),
+        track,
+      );
+    };
+    stepSwitch.addEventListener('click', () => {
+      const next = amountStep === FINEST_STEP ? DEFAULT_STEP : FINEST_STEP;
+      if (!saveAmountStep(dependencies.storage, next)) return;
+      amountStep = next;
+      paintSwitch();
+    });
+    paintSwitch();
+    card.append(stepSwitch, element('p', 'setting-help', '켜면 1,500원처럼 100원 단위 가격도 입력할 수 있어요. 끄면 1,000원 단위로만 입력합니다.'));
     view.append(card);
     replace(view);
   }
@@ -586,5 +689,6 @@ if (mount) {
     browser: detectBrowser(userAgent),
     inApp: detectInAppBrowser(userAgent),
     install: createInstallController(window),
+    listen: createSpeechListener(window as unknown as Parameters<typeof createSpeechListener>[0]) ?? undefined,
   });
 }

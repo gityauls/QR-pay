@@ -1,5 +1,5 @@
 import type { SellerId } from '../config';
-import { parseAmount } from './money';
+import { DEFAULT_STEP, FINEST_STEP, parseAmount, type AmountStep } from './money';
 
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -16,6 +16,7 @@ export type SalesSummary = {
 };
 
 const CURRENT_SELLER_KEY = 'qrpay.currentSeller';
+const AMOUNT_STEP_KEY = 'qrpay.amountStep';
 const SALES_KEY = 'qrpay.sales';
 const MAX_SALES = 500;
 
@@ -40,6 +41,23 @@ export function saveCurrentSeller(
   }
 }
 
+export function loadAmountStep(storage: StorageLike): AmountStep {
+  try {
+    return storage.getItem(AMOUNT_STEP_KEY) === String(FINEST_STEP) ? FINEST_STEP : DEFAULT_STEP;
+  } catch {
+    return DEFAULT_STEP;
+  }
+}
+
+export function saveAmountStep(storage: StorageLike, step: AmountStep): boolean {
+  try {
+    storage.setItem(AMOUNT_STEP_KEY, String(step));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isSaleRecord(value: unknown): value is SaleRecord {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<SaleRecord>;
@@ -48,7 +66,7 @@ function isSaleRecord(value: unknown): value is SaleRecord {
     candidate.sellerId.trim().length > 0 &&
     typeof candidate.occurredAt === 'string' &&
     Number.isFinite(Date.parse(candidate.occurredAt)) &&
-    parseAmount(candidate.amount ?? '') !== null
+    parseAmount(candidate.amount ?? '', FINEST_STEP) !== null
   );
 }
 

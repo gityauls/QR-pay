@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-pay-v3';
+const CACHE_NAME = 'qr-pay-v4';
 const APP_SHELL = [
   './manifest.webmanifest',
   './icons/qr-pay-192.png',

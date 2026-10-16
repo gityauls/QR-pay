@@ -1,0 +1,12 @@
+{
+  "name": "qr-pay-guide-shots",
+  "private": true,
+  "type": "module",
+  "description": "Rebuilds the guide pictures in public/guide from the real app",
+  "scripts": {
+    "shots": "node run.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.49.1"
+  }
+}

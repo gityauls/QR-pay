@@ -32,6 +32,12 @@
   --bank-size: 1.4375rem;
   --bank-height: 64px;
   --pay-text-size: 1.125rem;
+  /* Added 2026-10-17 with voice input and QR replay. */
+  --voice-size: 1.0625rem;
+  --voice-height: 40px;
+  --countdown-size: 1.125rem;
+  --replay-size: 1.3125rem;
+  --replay-height: 60px;
 }
 
 * {
@@ -151,6 +157,7 @@ h1,
 }
 
 .app-header__account {
+  container-type: inline-size;
   padding-left: 12px;
   border-left: 1px solid rgba(255, 255, 255, 0.38);
 }
@@ -181,10 +188,12 @@ h1,
 
 .app-header__number {
   font-size: var(--seller-account-size);
+  /* Long account numbers (with hyphens) shrink to stay on one line. */
+  font-size: min(var(--seller-account-size), calc(100cqi / (var(--account-chars, 14) * 0.62)));
   font-weight: 850;
   line-height: 1.25;
   letter-spacing: 0.01em;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .button {
@@ -386,7 +395,9 @@ h1,
 }
 
 .qr-frame {
-  width: min(100%, 410px);
+  /* Shrinks on short phones so the replay button stays on screen. */
+  width: clamp(240px, calc(100dvh - 430px), 410px);
+  max-width: 100%;
   margin: 20px auto 14px;
   padding: 10px;
   border: 10px solid var(--seller-color, var(--primary));
@@ -400,13 +411,19 @@ h1,
   height: auto;
 }
 
+.qr-replay {
+  min-height: var(--replay-height);
+  margin-top: 12px;
+  font-size: var(--replay-size);
+}
+
 .auto-return {
   margin: 14px 0 0;
   padding: 14px;
   border-radius: 12px;
   color: #713f12;
   background: #fef3c7;
-  font-size: 1.125rem;
+  font-size: var(--countdown-size);
   font-weight: 850;
 }
 
@@ -653,6 +670,115 @@ h1,
   margin-top: 10px;
 }
 
+.amount-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.voice-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--voice-height);
+  padding: 4px 14px 4px 10px;
+  border: 2px solid var(--primary-dark);
+  border-radius: 999px;
+  color: var(--primary-dark);
+  background: #ffffff;
+  cursor: pointer;
+  font-size: var(--voice-size);
+  font-weight: 900;
+  box-shadow: 0 2px 0 var(--primary-dark);
+}
+
+.voice-button:active {
+  transform: translateY(2px);
+}
+
+.voice-button__icon {
+  width: 1.3em;
+  height: 1.3em;
+}
+
+.voice-button--listening {
+  color: #ffffff;
+  border-color: #b91c1c;
+  background: #dc2626;
+  box-shadow: 0 2px 0 #7f1d1d;
+}
+
+.setting-switch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 2px solid #9ca3af;
+  border-radius: 14px;
+  color: #111827;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 850;
+  text-align: left;
+}
+
+.setting-switch__state {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.setting-switch__track {
+  position: relative;
+  width: 56px;
+  height: 32px;
+  border-radius: 999px;
+  background: #d1d5db;
+  transition: background 0.15s;
+}
+
+.setting-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.3);
+  transition: transform 0.15s;
+}
+
+.setting-switch[aria-checked="true"] {
+  border-color: var(--primary);
+}
+
+.setting-switch[aria-checked="true"] .setting-switch__state {
+  color: var(--primary);
+}
+
+.setting-switch[aria-checked="true"] .setting-switch__track {
+  background: var(--primary);
+}
+
+.setting-switch[aria-checked="true"] .setting-switch__knob {
+  transform: translateX(24px);
+}
+
+.setting-help {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+}
+
 .share-status {
   min-height: 1.4em;
   margin: 8px 0 0;
@@ -818,7 +944,7 @@ h1,
 }
 
 .app-shell--compact .amount-title {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 1.25rem;
 }
 

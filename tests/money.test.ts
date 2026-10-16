@@ -16,6 +16,19 @@ describe('parseAmount', () => {
       expect(parseAmount(input)).toBeNull();
     },
   );
+
+  it.each([
+    ['100', 100],
+    ['1500', 1_500],
+    ['14,500', 14_500],
+    ['500000', 500_000],
+  ])('parses hundred-won input %s when 100-won steps are allowed', (input, expected) => {
+    expect(parseAmount(input, 100)).toBe(expected);
+  });
+
+  it.each(['99', '150', '1550', '500100'])('rejects %s even with 100-won steps', (input) => {
+    expect(parseAmount(input, 100)).toBeNull();
+  });
 });
 
 describe('won formatting', () => {

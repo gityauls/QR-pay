@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createLocalConfig, loadLocalConfig, saveLocalConfig } from '../src/lib/local-config';
+import type { ListenResult } from '../src/lib/speech';
+import { getSales } from '../src/lib/storage';
 import { parsePaymentRequest } from '../src/lib/pay-url';
 import { createSellerApp } from '../src/seller/main';
 
@@ -266,12 +268,23 @@ describe('seller app installation', () => {
     expect([...element.querySelectorAll('button')].some((item) => item.textContent === '휴대폰에 설치하기')).toBe(false);
   });
 
-  it('leaves the KakaoTalk in-app browser for the phone browser', () => {
+  it('opens Chrome straight from KakaoTalk on Android', () => {
     const element = root();
     const open = vi.fn();
     createSellerApp(element, createDependencies({ standalone: false, inApp: 'kakao', open }));
-    expect(open).toHaveBeenCalledWith('kakaotalk://web/openExternal?url=https%3A%2F%2Fexample.com%2FQR-pay%2F');
+    expect(open).toHaveBeenCalledWith('intent://example.com/QR-pay/#Intent;scheme=https;package=com.android.chrome;end');
     expect(element.textContent).toContain('카카오톡');
+    button(element, '크롬으로 열기').click();
+    expect(open).toHaveBeenCalledTimes(2);
+    button(element, '다른 인터넷 앱으로 열기').click();
+    expect(open).toHaveBeenLastCalledWith('kakaotalk://web/openExternal?url=https%3A%2F%2Fexample.com%2FQR-pay%2F');
+  });
+
+  it('asks KakaoTalk to open Safari on iPhone', () => {
+    const element = root();
+    const open = vi.fn();
+    createSellerApp(element, createDependencies({ standalone: false, inApp: 'kakao', platform: 'ios', open }));
+    expect(open).toHaveBeenCalledWith('kakaotalk://web/openExternal?url=https%3A%2F%2Fexample.com%2FQR-pay%2F');
     button(element, '인터넷 앱으로 열기').click();
     expect(open).toHaveBeenCalledTimes(2);
   });
@@ -315,5 +328,130 @@ describe('seller app installation', () => {
     button(element, '설정').click();
     button(element, '휴대폰에 설치하기').click();
     expect(element.querySelector('.install-panel')).not.toBeNull();
+  });
+});
+
+function listenWith(...results: ListenResult[]) {
+  const queue = [...results];
+  return vi.fn(async () => queue.shift() ?? { ok: false as const, reason: 'no-speech' as const });
+}
+
+function amountText(element: ParentNode) {
+  return element.querySelector('[data-testid=amount-display]')?.textContent;
+}
+
+describe('seller app voice amount', () => {
+  it('hides the voice button where speech recognition is unavailable', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    expect(element.querySelector('.voice-button')).toBeNull();
+  });
+
+  it('fills the amount from speech and lets the seller say it again', async () => {
+    seed();
+    const element = root();
+    const listen = listenWith(
+      { ok: true, transcripts: ['만오천원'] },
+      { ok: true, transcripts: ['만육천원'] },
+    );
+    createSellerApp(element, createDependencies({ listen }));
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(amountText(element)).toBe('15,000원'));
+    expect(element.textContent).toContain('만오천원');
+    expect(button(element, 'QR 만들기').disabled).toBe(false);
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(amountText(element)).toBe('16,000원'));
+    expect(listen).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the first alternative that is a price', async () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies({
+      listen: listenWith({ ok: true, transcripts: ['맘 오천 원', '만 오천 원'] }),
+    }));
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(amountText(element)).toBe('15,000원'));
+  });
+
+  it('asks again when the words are not a price', async () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies({ listen: listenWith({ ok: true, transcripts: ['안녕하세요'] }) }));
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('알아듣지 못했어요'));
+    expect(amountText(element)).toBe('0원');
+  });
+
+  it('refuses a 100-won amount while 1,000-won steps are on', async () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies({ listen: listenWith({ ok: true, transcripts: ['만오천오백원'] }) }));
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('1,000원 단위로'));
+    expect(amountText(element)).toBe('0원');
+  });
+
+  it('explains a blocked microphone', async () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies({ listen: listenWith({ ok: false, reason: 'denied' }) }));
+    button(element, '말로 입력').click();
+    await vi.waitFor(() => expect(element.textContent).toContain('마이크'));
+  });
+});
+
+describe('seller app QR replay', () => {
+  it('restarts the 15-second countdown without recording another sale', async () => {
+    seed();
+    const element = root();
+    const dependencies = createDependencies();
+    createSellerApp(element, dependencies);
+    quickAmount(element, 5_000).click();
+    button(element, 'QR 만들기').click();
+    await vi.waitFor(() => expect(element.querySelector('.qr-image')).not.toBeNull());
+    const tick = dependencies.timers.setInterval.mock.calls[0][0];
+    tick();
+    tick();
+    expect(element.textContent).toContain('13초 뒤');
+    button(element, 'QR 코드 다시 보기').click();
+    expect(element.textContent).toContain('15초 뒤');
+    expect(dependencies.timers.clearTimeout).toHaveBeenCalled();
+    expect(dependencies.timers.setTimeout).toHaveBeenCalledTimes(2);
+    expect(element.querySelector('.qr-image')).not.toBeNull();
+    expect(getSales(localStorage)).toHaveLength(1);
+  });
+});
+
+describe('seller app 100-won steps', () => {
+  function typeDigits(element: ParentNode, digits: string) {
+    for (const digit of digits) element.querySelector<HTMLButtonElement>(`[data-keypad-key="${digit}"]`)?.click();
+  }
+
+  it('keeps 1,000-won steps by default', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    typeDigits(element, '15500');
+    expect(button(element, 'QR 만들기').disabled).toBe(true);
+  });
+
+  it('allows 100-won prices after the setting is turned on', () => {
+    seed();
+    const element = root();
+    createSellerApp(element, createDependencies());
+    button(element, '설정').click();
+    const toggle = element.querySelector<HTMLButtonElement>('[role=switch]');
+    expect(toggle?.getAttribute('aria-checked')).toBe('false');
+    expect(toggle?.textContent).toContain('100원 단위 가격 입력');
+    toggle?.click();
+    expect(element.querySelector('[role=switch]')?.getAttribute('aria-checked')).toBe('true');
+    expect(localStorage.getItem('qrpay.amountStep')).toBe('100');
+    button(element, '금액 입력으로 돌아가기').click();
+    expect(element.textContent).toContain('100원 단위');
+    typeDigits(element, '15500');
+    expect(amountText(element)).toBe('15,500원');
+    expect(button(element, 'QR 만들기').disabled).toBe(false);
   });
 });
